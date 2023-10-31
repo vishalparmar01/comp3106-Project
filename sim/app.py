@@ -1,3 +1,5 @@
+from random import randint
+
 import numpy as np
 from textual.app import App, ComposeResult
 from textual.color import Color
@@ -52,7 +54,8 @@ class Simulator(App[None]):
 
     def on_mount(self) -> None:
         self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
-        self.canvas.draw_circle(100, 100, 50, Color(0, 0, 0))
+        # TODO: Draw initial state
+        # self.canvas.draw_circle(100, 100, 50, Color(0, 0, 0))
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -62,6 +65,7 @@ class Simulator(App[None]):
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
         # TODO: Agent simulation and grid updates
+        self.draw_point(0, 0, Color(randint(0, 255), randint(0, 255), randint(0, 255)))
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a 2x2 point to the canvas."""
