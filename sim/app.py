@@ -1,12 +1,14 @@
-from grid.grid import create_dynamic_grid, Cell
+from typing import Type
 
-import numpy as np
 from textual.app import App, ComposeResult
 from textual.color import Color
 from textual.events import MouseMove, Click
 from textual.timer import Timer
 from textual.widgets import Footer, Header
 from textual_canvas import Canvas
+
+from agent.agent_manager import AgentManager
+from grid.grid import create_dynamic_grid, Cell
 
 
 colours = {
@@ -32,12 +34,20 @@ class Simulator(App[None]):
         ("w", "select_wet", "Place wet"),
     ]
 
-    def __init__(self, rows: int, cols: int, agents: list, scale_factor: int = 2, speed: float = 1, **kwargs):
+    def __init__(
+        self,
+        rows: int,
+        cols: int,
+        Manager: Type[AgentManager],
+        scale_factor: int = 2,
+        speed: float = 1,
+        **kwargs
+    ):
         """
         Sets up the simulator.
 
         :param grid: Start state of environment grid
-        :param agents: AI agents that clean up the grid
+        :param Manager: AI agents that clean up the grid
         :param speed: Time between ticks in seconds
         :param kwargs: Passed to ``textual.App.__init__``
         """
@@ -56,7 +66,7 @@ class Simulator(App[None]):
         self.brush = Cell.EMPTY
 
         self.scale_factor = scale_factor
-        self.agents = agents
+        self.agents = Manager(self.grid)
 
     def set_grid_size(self, rows: int, cols: int):
         """Set the size of the grid dynamically."""
@@ -73,16 +83,28 @@ class Simulator(App[None]):
     def on_mount(self) -> None:
         self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
         self.draw_grid()
+        self.draw_agents()
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield self.canvas
         yield Footer()
 
+    def draw_agents(self):
+        agents = self.agents.agent_locations()
+        for agent in agents:
+            x, y = agents[agent]
+            x *= self.scale_factor
+            y *= self.scale_factor
+            for i in range(1, self.scale_factor - 1):
+                for j in range(1, self.scale_factor - 1):
+                    self.canvas.set_pixel(x + i, y + j, colours[Cell.WALL])
+
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
-        # TODO: Agent simulation and grid updates
+        self.agents.tick()
         self.draw_grid()
+        self.draw_agents()
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""

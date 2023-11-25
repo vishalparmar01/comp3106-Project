@@ -1,12 +1,29 @@
-import numpy as np
+from argparse import ArgumentParser
 
 from sim import app
+from agent.separate_agents import SeparateAgents
+from agent.central_manager import CentralManager
 
 
 if __name__ == "__main__":
-    simulator = app.Simulator(6, 6, np.array([]), 10)
+    parser = ArgumentParser(
+        prog="Trash simulator",
+        description="Simulates agents cleaning trash"
+    )
+    parser.add_argument(
+        '-c',
+        '--central',
+        help="Whether to use the central manager",
+        action='store_true',
+        default=False
+    )
+    args = parser.parse_args()
+
+    simulator = app.Simulator(6, 6, CentralManager if args.central else SeparateAgents, 10)
     simulator.run()
+
     print(simulator.grid)
+    print(simulator.agents)
 
 
 '''
