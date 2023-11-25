@@ -17,10 +17,17 @@ def create_dynamic_grid(rows: int, columns: int):
     # Create a dynamic grid with the specified number of rows and columns
     grid = np.zeros((rows, columns), dtype=np.uint8)
 
+    bin_placed = False
     for i in range(rows):
         for j in range(columns):
             if randint(0, 1):  # Randomly choose whether to place wet or trash
                 grid[i, j] = choice([Cell.WET, Cell.DRY]).value  # Indicate the presence of an element in the grid
+            elif not bin_placed:
+                grid[i, j] = Cell.BIN.value
+                bin_placed = True
+
+    if not bin_placed:
+        grid[0, 0] = Cell.BIN.value
 
     return grid
 

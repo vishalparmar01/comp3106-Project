@@ -7,7 +7,7 @@ from textual.timer import Timer
 from textual.widgets import Footer, Header
 from textual_canvas import Canvas
 
-from agent.agent_manager import AgentManager
+from agent.agent_manager import AgentManager, AgentType
 from grid.grid import create_dynamic_grid, Cell
 
 
@@ -18,6 +18,9 @@ colours = {
     Cell.DIRTY: Color(127, 0, 0),
     Cell.BIN: Color(0, 255, 0),
     Cell.WALL: Color(0, 0, 0),
+    AgentType.GARBAGE: Color(255, 255, 0),
+    AgentType.VACUUM: Color(0, 255, 255),
+    AgentType.MOP: Color(255, 0, 255),
 }
 
 
@@ -98,7 +101,7 @@ class Simulator(App[None]):
             y *= self.scale_factor
             for i in range(1, self.scale_factor - 1):
                 for j in range(1, self.scale_factor - 1):
-                    self.canvas.set_pixel(x + i, y + j, colours[Cell.WALL])
+                    self.canvas.set_pixel(x + i, y + j, colours[agent])
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
