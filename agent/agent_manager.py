@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import Enum
-
+from typing import List, Tuple
 import numpy as np
 
 
@@ -21,6 +21,9 @@ class AgentManager(ABC):
 
     def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
         """Returns (x, y) location of each agent."""
+    
+    def set_agent_actions(self, agent_type: AgentType, actions: List[str]) -> None:
+        """Set actions for a specific agent."""
 
     def __repr__(self) -> str:
         """Representation of agents"""
