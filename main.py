@@ -2,9 +2,7 @@ from argparse import ArgumentParser
 
 from sim import app
 from agent.separate_agents import SeparateAgents
-from agent.central_manager import CentralManager
 from agent.astar_controller import AStarController
-from agent.agent_manager import AgentType
 
 
 if __name__ == "__main__":
@@ -22,8 +20,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # simulator = app.Simulator(6, 6, CentralManager if args.central else SeparateAgents, 10)
-    simulator = app.Simulator(6, 6, CentralManager, 10)
-    astar_controller = AStarController(simulator)
+    simulator = app.Simulator(6, 6, AStarController, 10)
     simulator.run()
 
     print(simulator.grid)

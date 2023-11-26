@@ -2,8 +2,9 @@ from queue import PriorityQueue
 from typing import List, Tuple
 from enum import Enum
 import numpy as np
-from agent.agent_manager import AgentType
+from agent.agent_manager import AgentType, AgentManager
 from grid.grid import Cell
+
 
 class Action(Enum):
     MOVE_UP = "UP"
@@ -11,11 +12,21 @@ class Action(Enum):
     MOVE_LEFT = "LEFT"
     MOVE_RIGHT = "RIGHT"
 
-class AStarController:
-    def __init__(self, simulator):
-        self.simulator = simulator
-        self.grid = simulator.grid
-        self.agent_positions = simulator.agents.agent_locations()
+
+class AStarController(AgentManager):
+    def __init__(self, grid):
+        super().__init__(grid)
+        self.agent_positions = {
+            AgentType.GARBAGE: (0, 0),
+            AgentType.VACUUM: (1, 0),
+            AgentType.MOP: (2, 0),
+        }
+
+    def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
+        return self.agent_positions
+
+    def __str__(self) -> str:
+        return "A* Controller with agents at: " + str(self.agent_positions)
 
     def a_star(self, start: Tuple[int, int], goal: Tuple[int, int]) -> List[Action]:
         def heuristic(current, goal):
@@ -99,7 +110,7 @@ class AStarController:
         for action in actions:
             position = self.apply_action(position, action)
         return position
-    
+
     def tick(self, actions: List[Action]) -> None:
         for action in actions:
             # Update the visual grid based on the actions
