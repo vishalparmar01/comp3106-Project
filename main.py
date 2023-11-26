@@ -11,16 +11,15 @@ if __name__ == "__main__":
         description="Simulates agents cleaning trash"
     )
     parser.add_argument(
-        '-c',
-        '--central',
+        '-s',
+        '--separate',
         help="Whether to use the central manager",
         action='store_true',
         default=False
     )
     args = parser.parse_args()
 
-    # simulator = app.Simulator(6, 6, CentralManager if args.central else SeparateAgents, 10)
-    simulator = app.Simulator(6, 6, AStarController, 10)
+    simulator = app.Simulator(6, 6, SeparateAgents if args.separate else AStarController, 10)
     simulator.run()
 
     print(simulator.grid)
