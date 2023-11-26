@@ -2,7 +2,7 @@ from queue import PriorityQueue
 from typing import List, Tuple
 from enum import Enum
 import numpy as np
-from agent.agent_manager import AgentType, AgentManager
+from agent.agent_manager import AgentType, AgentManager, AgentLocations
 from grid.grid import Cell
 
 
@@ -14,13 +14,9 @@ class Action(Enum):
 
 
 class AStarController(AgentManager):
-    def __init__(self, grid):
-        super().__init__(grid)
-        self.agent_positions = {
-            AgentType.GARBAGE: (0, 0),
-            AgentType.VACUUM: (1, 0),
-            AgentType.MOP: (2, 0),
-        }
+    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+        super().__init__(grid, locations)
+        self.agent_positions = locations
 
     def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
         return self.agent_positions

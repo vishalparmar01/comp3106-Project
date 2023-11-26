@@ -1,6 +1,6 @@
 import numpy as np
 
-from agent.agent_manager import AgentManager, AgentType
+from agent.agent_manager import AgentManager, AgentType, AgentLocations
 from grid.grid import Cell
 
 
@@ -36,20 +36,23 @@ class Mop(Agent):
     ...
 
 
+CLASS_MAP = {
+    AgentType.GARBAGE: Garbage,
+    AgentType.VACUUM: Vacuum,
+    AgentType.MOP: Mop,
+}
+
+
 class SeparateAgents(AgentManager):
-    def __init__(self, grid: np.ndarray):
-        super().__init__(grid)
-        self.agents = {
-            AgentType.GARBAGE: Garbage(self.grid, 0, 0),
-            AgentType.VACUUM: Vacuum(self.grid, 1, 0),
-            AgentType.MOP: Mop(self.grid, 2, 0),
-        }
+    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+        super().__init__(grid, locations)
+        self.agents = {agent: CLASS_MAP[agent](grid, x, y) for agent, (x, y) in locations.items()}
 
     def tick(self) -> None:
         for agent in self.agents.values():
             agent.tick(self.agents)
 
-    def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
+    def agent_locations(self) -> AgentLocations:
         return {agent_type: agent.location() for (agent_type, agent) in self.agents.items()}
 
     def __repr__(self) -> str:

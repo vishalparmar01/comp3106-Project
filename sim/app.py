@@ -8,7 +8,7 @@ from textual.widgets import Footer, Header
 from textual_canvas import Canvas
 
 from agent.agent_manager import AgentManager, AgentType
-from grid.grid import create_dynamic_grid, Cell
+from grid.grid import create_dynamic_grid, Cell, get_start_positions
 
 
 colours = {
@@ -69,7 +69,7 @@ class Simulator(App[None]):
         self.brush = Cell.EMPTY
 
         self.scale_factor = scale_factor
-        self.agents = Manager(self.grid)
+        self.agents = Manager(self.grid, get_start_positions(self.grid))
 
     def set_grid_size(self, rows: int, cols: int):
         """Set the size of the grid dynamically."""

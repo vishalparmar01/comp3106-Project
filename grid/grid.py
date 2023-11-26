@@ -3,6 +3,8 @@ from random import choice, randint
 
 import numpy as np
 
+from agent.agent_manager import AgentType, AgentLocations
+
 
 class Cell(Enum):
     EMPTY = 0
@@ -36,6 +38,14 @@ def print_grid(grid):
     # Print the grid
     for row in grid:
         print(" ".join(map(str, row)))
+
+
+def get_start_positions(grid: np.ndarray) -> AgentLocations:
+    return {
+        AgentType.GARBAGE: (0, 0),
+        AgentType.VACUUM: (1, 0),
+        AgentType.MOP: (2, 0),
+    }
 
 
 # Example usage

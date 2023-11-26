@@ -10,18 +10,23 @@ class AgentType(Enum):
     VACUUM = 3
 
 
+Point = tuple[int, int]
+AgentLocations = dict[AgentType: Point]
+
+
 class AgentManager(ABC):
     """API for interacting with a group of agents."""
 
-    def __init__(self, grid: np.ndarray):
+    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+        """Environment and initial agent locations"""
         self.grid = grid
 
     def tick(self) -> None:
         """One timestep. Updates grid and agent locations."""
 
-    def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
+    def agent_locations(self) -> AgentLocations:
         """Returns (x, y) location of each agent."""
-    
+
     def set_agent_actions(self, agent_type: AgentType, actions: List[str]) -> None:
         """Set actions for a specific agent."""
 
