@@ -78,49 +78,49 @@ class AStarController(AgentManager):
         x, y = node
         return 0 <= x < len(self.grid) and 0 <= y < len(self.grid[0]) and self.grid[x, y] != Cell.WALL.value
 
-    def move_agents(self):
-        trash_picker_start = self.agent_positions[AgentType.GARBAGE]
+    def tick(self) -> None:
+        garbage_start = self.agent_positions[AgentType.GARBAGE]
         vacuum_start = self.agent_positions[AgentType.VACUUM]
         mop_start = self.agent_positions[AgentType.MOP]
 
-        trash_picker_goal = self.find_closest_goal(trash_picker_start, Cell.DRY)
+        garbage_goal = self.find_closest_goal(garbage_start, Cell.DRY)
         vacuum_goal = self.find_closest_goal(vacuum_start, Cell.WET)
         mop_goal = self.find_closest_goal(mop_start, Cell.DIRTY)
 
-        trash_picker_actions = self.a_star(trash_picker_start, trash_picker_goal)
+        garbage_actions = self.a_star(garbage_start, garbage_goal)
         vacuum_actions = self.a_star(vacuum_start, vacuum_goal)
         mop_actions = self.a_star(mop_start, mop_goal)
 
         agent_actions = {
-            AgentType.GARBAGE: trash_picker_actions,
+            AgentType.GARBAGE: garbage_actions,
             AgentType.VACUUM: vacuum_actions,
             AgentType.MOP: mop_actions
         }
 
         for agent_type, actions in agent_actions.items():
-            self.tick(actions)
-            self.agent_positions[agent_type] = self.find_final_position(self.agent_positions[agent_type], actions)
+            self.tick_agent(agent_type, actions)
 
-    def find_final_position(self, start: Tuple[int, int], actions: List[Action]) -> Tuple[int, int]:
-        position = start
+    def tick_agent(self, agent_type: AgentType, actions: List[Action]) -> None:
         for action in actions:
-            position = self.apply_action(position, action)
-        return position
+            current_position = self.agent_positions[agent_type]
 
-    def tick(self, actions: List[Action]) -> None:
-        for action in actions:
             # Update the visual grid based on the actions
             if action == Action.MOVE_UP or action == Action.MOVE_DOWN or \
-                 action == Action.MOVE_LEFT or action == Action.MOVE_RIGHT:
+                action == Action.MOVE_LEFT or action == Action.MOVE_RIGHT:
                 # Update agent positions if it's a movement action
-                new_position = self.apply_action(self.agent_positions[AgentType.GARBAGE], action)
-                self.agent_positions[AgentType.GARBAGE] = new_position
+                new_position = self.apply_action(current_position, action)
+                print(f"{agent_type.name} moved from {current_position} to {new_position}")
+                self.agent_positions[agent_type] = new_position
 
-            # Similar updates for other agent types if needed
+            # Check if the current node needs cleaning
+            if self.grid[current_position[0], current_position[1]] == Cell.DRY.value:
+                self.grid[current_position[0], current_position[1]] = Cell.EMPTY.value
+                print(f"{agent_type.name} cleaned cell at {current_position}")
 
         # Set the cell value to EMPTY at the final position
-        final_position = self.agent_positions[AgentType.GARBAGE]
+        final_position = self.agent_positions[agent_type]
         self.grid[final_position[0], final_position[1]] = Cell.EMPTY.value
+
 
     def combine_actions(self, *actions: List[Action]) -> List[List[Action]]:
         combined_actions = [[] for _ in range(len(actions[0]))]
