@@ -13,9 +13,9 @@ from grid.grid import create_dynamic_grid, Cell, get_start_positions
 
 colours = {
     Cell.EMPTY: Color(255, 255, 255),
-    Cell.DRY: Color(255, 0, 0),
-    Cell.WET: Color(0, 0, 255),
-    Cell.DIRTY: Color(127, 0, 0),
+    Cell.DRYTRASH: Color(255, 0, 0),
+    Cell.WETTRASH: Color(0, 0, 255),
+    Cell.DUSTY: Color(127, 0, 0),
     Cell.BIN: Color(0, 255, 0),
     Cell.WALL: Color(0, 0, 0),
     AgentType.GARBAGE: Color(255, 255, 0),
@@ -33,8 +33,8 @@ class Simulator(App[None]):
         ("e", "select_erase", "Place empty"),
         ("b", "select_bin", "Place bin"),
         ("o", "select_obstacle", "Place obstacle"),
-        ("t", "select_trash", "Place trash"),
-        ("w", "select_wet", "Place wet"),
+        ("d", "select_trash", "Place dry trash"),
+        ("w", "select_wet", "Place wet trash"),
     ]
 
     def __init__(
@@ -136,10 +136,10 @@ class Simulator(App[None]):
         self.brush = Cell.WALL
 
     def action_select_trash(self) -> None:
-        self.brush = Cell.DRY
+        self.brush = Cell.DRYTRASH
 
     def action_select_wet(self) -> None:
-        self.brush = Cell.WET
+        self.brush = Cell.WETTRASH
 
     def handle_click(self, raw_x: int, raw_y: int):
         # Calculate the grid coordinates based on the clicked pixel

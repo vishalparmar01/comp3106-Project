@@ -8,9 +8,9 @@ from agent.agent_manager import AgentType, AgentLocations
 
 class Cell(Enum):
     EMPTY = 0
-    WET = 1
-    DRY = 2
-    DIRTY = 3
+    WETTRASH = 1
+    DRYTRASH = 2
+    DUSTY = 3
     BIN = 4
     WALL = 5
 
@@ -23,7 +23,7 @@ def create_dynamic_grid(rows: int, columns: int):
     for i in range(rows):
         for j in range(columns):
             if randint(0, 1):  # Randomly choose whether to place wet or trash
-                grid[i, j] = choice([Cell.WET, Cell.DRY]).value  # Indicate the presence of an element in the grid
+                grid[i, j] = choice([Cell.WETTRASH, Cell.DRYTRASH]).value  # Indicate the presence of an element in the grid
             elif not bin_placed:
                 grid[i, j] = Cell.BIN.value
                 bin_placed = True

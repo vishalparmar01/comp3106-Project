@@ -40,7 +40,7 @@ class AStarController(AgentManager):
 
             if current_node == goal:
                 # If a cleaning action is pending, add it to the path
-                if self.grid[current_node[0], current_node[1]] == Cell.DRY.value:
+                if self.grid[current_node[0], current_node[1]] == Cell.DRYTRASH.value:
                     self.grid[current_node[0], current_node[1]] = Cell.EMPTY.value
                 while current_node in came_from:
                     path.append(came_from[current_node])
@@ -48,7 +48,7 @@ class AStarController(AgentManager):
                 return path[::-1]
 
             # Check if the current node needs cleaning
-            if self.grid[current_node[0], current_node[1]] == Cell.DRY.value:
+            if self.grid[current_node[0], current_node[1]] == Cell.DRYTRASH.value:
                 self.grid[current_node[0], current_node[1]] = Cell.EMPTY.value
                 continue
 
@@ -83,9 +83,9 @@ class AStarController(AgentManager):
         vacuum_start = self.agent_positions[AgentType.VACUUM]
         mop_start = self.agent_positions[AgentType.MOP]
 
-        garbage_goal = self.find_closest_goal(garbage_start, Cell.DRY)
-        vacuum_goal = self.find_closest_goal(vacuum_start, Cell.WET)
-        mop_goal = self.find_closest_goal(mop_start, Cell.DIRTY)
+        garbage_goal = self.find_closest_goal(garbage_start, Cell.DRYTRASH)
+        vacuum_goal = self.find_closest_goal(vacuum_start, Cell.DUSTY)
+        mop_goal = self.find_closest_goal(mop_start, Cell.WETTRASH)
 
         garbage_actions = self.a_star(garbage_start, garbage_goal)
         vacuum_actions = self.a_star(vacuum_start, vacuum_goal)
@@ -113,23 +113,13 @@ class AStarController(AgentManager):
                 self.agent_positions[agent_type] = new_position
 
             # Check if the current node needs cleaning
-            if self.grid[current_position[0], current_position[1]] == Cell.DRY.value:
+            if self.grid[current_position[0], current_position[1]] == Cell.DRYTRASH.value:
                 self.grid[current_position[0], current_position[1]] = Cell.EMPTY.value
                 print(f"{agent_type.name} cleaned cell at {current_position}")
 
         # Set the cell value to EMPTY at the final position
         final_position = self.agent_positions[agent_type]
         self.grid[final_position[0], final_position[1]] = Cell.EMPTY.value
-
-
-    def combine_actions(self, *actions: List[Action]) -> List[List[Action]]:
-        combined_actions = [[] for _ in range(len(actions[0]))]
-
-        for action_set in actions:
-            for i, action in enumerate(action_set):
-                combined_actions[i].append(action)
-
-        return combined_actions
 
     def find_closest_goal(self, start: Tuple[int, int], goal_type: Cell) -> Tuple[int, int]:
         def heuristic(current, goal):
