@@ -1,3 +1,4 @@
+#!/bin/env python
 from argparse import ArgumentParser
 
 from sim import app
@@ -11,18 +12,52 @@ if __name__ == "__main__":
         description="Simulates agents cleaning trash"
     )
     parser.add_argument(
-        '-s',
-        '--separate',
-        help="Whether to use the central manager",
+        '-i',
+        '--individual',
+        help="Whether to use the individually managed agents",
         action='store_true',
         default=False
     )
+    parser.add_argument(
+        '-x',
+        '--columns',
+        help="How many columns in the grid",
+        type=int,
+        default=10
+    )
+    parser.add_argument(
+        '-y',
+        '--rows',
+        help="How many rows in the grid",
+        type=int,
+        default=6
+    )
+    parser.add_argument(
+        '-s',
+        '--scale',
+        help="Scale of the grid display",
+        type=int,
+        default=6
+    )
+    parser.add_argument(
+        '-d',
+        '--delta',
+        help="Time between simulation ticks in seconds",
+        type=float,
+        default=0.5
+    )
     args = parser.parse_args()
 
-    simulator = app.Simulator(6, 6, SeparateAgents if args.separate else AStarController, 10)
+    simulator = app.Simulator(
+        args.rows,
+        args.columns,
+        SeparateAgents if args.individual else AStarController,
+        args.scale,
+        args.delta
+    )
     simulator.run()
 
-    print(simulator.grid)
+    print(simulator.grid.T)
     print(simulator.agents)
 
 

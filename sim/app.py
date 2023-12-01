@@ -58,7 +58,7 @@ class Simulator(App[None]):
 
         self.rows = rows
         self.cols = cols
-        self.grid = create_dynamic_grid(rows, cols)
+        self.grid = create_dynamic_grid(cols, rows)
 
         self.paused = True
 
@@ -71,17 +71,10 @@ class Simulator(App[None]):
         self.scale_factor = scale_factor
         self.agents = Manager(self.grid, get_start_positions(self.grid))
 
-    def set_grid_size(self, rows: int, cols: int):
-        """Set the size of the grid dynamically."""
-        self.rows = rows
-        self.cols = cols
-        self.grid = create_dynamic_grid(rows, cols)
-        self.canvas = Canvas(cols * 2, rows * 2, color=Color(255, 255, 255))
-
     def draw_grid(self) -> None:
         for i in range(self.rows):
             for j in range(self.cols):
-                self.draw_point(i, j, colours[Cell(self.grid[i, j])])
+                self.draw_point(j, i, colours[Cell(self.grid[j, i])])
 
     def on_mount(self) -> None:
         self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
@@ -99,8 +92,9 @@ class Simulator(App[None]):
             x, y = agents[agent]
             x *= self.scale_factor
             y *= self.scale_factor
-            for i in range(1, self.scale_factor - 1):
-                for j in range(1, self.scale_factor - 1):
+            draw_range = (1, self.scale_factor - 1) if self.scale_factor > 2 else (0, self.scale_factor)
+            for i in range(*draw_range):
+                for j in range(*draw_range):
                     self.canvas.set_pixel(x + i, y + j, colours[agent])
 
     def tick(self) -> None:
