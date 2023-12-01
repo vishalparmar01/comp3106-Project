@@ -3,7 +3,7 @@ from typing import Type
 from textual.app import App, ComposeResult
 from textual.color import Color
 from textual.containers import HorizontalScroll
-from textual.events import MouseMove, Click
+from textual.events import Click, MouseMove, MouseScrollDown, MouseScrollUp
 from textual.timer import Timer
 from textual.widgets import Footer, Header, RichLog
 from textual_canvas import Canvas
@@ -25,6 +25,8 @@ colours = {
     AgentType.MOP: Color(255, 0, 255),
 }
 
+BACKGROUND_COLOUR = colours[Cell.EMPTY]
+
 
 class Simulator(App[None]):
     """Simulates an environment and runs the agents."""
@@ -40,6 +42,8 @@ class Simulator(App[None]):
         ("w", "select_wet", "Place wet trash"),
         ("d", "select_dusty", "Place dusty square"),
         ("s", "select_soaked", "Place soaked square"),
+        ("+", "zoom_in", "Zoom in"),
+        ("-", "zoom_out", "Zoom out"),
     ]
 
     def __init__(
@@ -70,13 +74,14 @@ class Simulator(App[None]):
         self.speed = speed
         self.timer: Timer | None = None
 
-        self.canvas = Canvas(cols * scale_factor, rows * scale_factor, color=Color(255, 255, 255))
+        self.canvas = Canvas(cols * scale_factor, rows * scale_factor, color=BACKGROUND_COLOUR)
         self.brush = Cell.EMPTY
 
         self.logger = RichLog()
         self.logger.display = False
 
         self.scale_factor = scale_factor
+        self.original_scale_factor = scale_factor
         self.agents = Manager(self.grid, get_start_positions(self.grid), self.logger.write)
 
     def draw_grid(self) -> None:
@@ -86,8 +91,7 @@ class Simulator(App[None]):
 
     def on_mount(self) -> None:
         self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
-        self.draw_grid()
-        self.draw_agents()
+        self.draw_ui()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -96,7 +100,7 @@ class Simulator(App[None]):
             yield self.logger
         yield Footer()
 
-    def draw_agents(self):
+    def draw_agents(self) -> None:
         agents = self.agents.agent_locations()
         for agent in agents:
             x, y = agents[agent]
@@ -106,6 +110,10 @@ class Simulator(App[None]):
             for i in range(*draw_range):
                 for j in range(*draw_range):
                     self.canvas.set_pixel(x + i, y + j, colours[agent])
+
+    def draw_ui(self) -> None:
+        self.draw_grid()
+        self.draw_agents()
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
@@ -154,6 +162,16 @@ class Simulator(App[None]):
     def action_select_soaked(self) -> None:
         self.brush = Cell.SOAKED
 
+    def action_zoom_in(self) -> None:
+        self.scale_factor = min(self.scale_factor + 1, self.original_scale_factor)
+        self.canvas.clear(BACKGROUND_COLOUR)
+        self.draw_ui()
+
+    def action_zoom_out(self) -> None:
+        self.scale_factor = min(max(1, self.scale_factor - 1), self.original_scale_factor)
+        self.canvas.clear(BACKGROUND_COLOUR)
+        self.draw_ui()
+
     def handle_click(self, raw_x: int, raw_y: int):
         # Calculate the grid coordinates based on the clicked pixel
         x = raw_x // self.scale_factor
@@ -174,3 +192,11 @@ class Simulator(App[None]):
     def on_mouse_move(self, event: MouseMove) -> None:
         if event.button != 0:
             self.handle_click(event.x, event.y)
+
+    def on_mouse_scroll_down(self, event: MouseScrollDown):
+        if event.meta:
+            self.action_zoom_in()
+
+    def on_mouse_scroll_up(self, event: MouseScrollUp):
+        if event.meta:
+            self.action_zoom_out()
