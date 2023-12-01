@@ -1,7 +1,9 @@
 from abc import ABC
 from enum import Enum
-from typing import List, Tuple
+from typing import List, Type
+
 import numpy as np
+from textual.widgets import RichLog
 
 
 class AgentType(Enum):
@@ -13,13 +15,16 @@ class AgentType(Enum):
 Point = tuple[int, int]
 AgentLocations = dict[AgentType: Point]
 
+LoggerFunction = Type[RichLog.write]
+
 
 class AgentManager(ABC):
     """API for interacting with a group of agents."""
 
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, log: LoggerFunction):
         """Environment and initial agent locations"""
         self.grid = grid
+        self.log = log
 
     def tick(self) -> None:
         """One timestep. Updates grid and agent locations."""

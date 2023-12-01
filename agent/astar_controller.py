@@ -1,8 +1,10 @@
+from enum import Enum
 from queue import PriorityQueue
 from typing import List, Tuple
-from enum import Enum
+
 import numpy as np
-from agent.agent_manager import AgentType, AgentManager, AgentLocations
+
+from agent.agent_manager import AgentLocations, AgentManager, AgentType, LoggerFunction
 from grid.grid import Cell
 
 
@@ -14,11 +16,11 @@ class Action(Enum):
 
 
 class AStarController(AgentManager):
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
-        super().__init__(grid, locations)
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, log: LoggerFunction):
+        super().__init__(grid, locations, log)
         self.agent_positions = locations
 
-    def agent_locations(self) -> dict[AgentType: tuple[int, int]]:
+    def agent_locations(self) -> AgentLocations:
         return self.agent_positions
 
     def __str__(self) -> str:
@@ -109,13 +111,13 @@ class AStarController(AgentManager):
                 action == Action.MOVE_LEFT or action == Action.MOVE_RIGHT:
                 # Update agent positions if it's a movement action
                 new_position = self.apply_action(current_position, action)
-                print(f"{agent_type.name} moved from {current_position} to {new_position}")
+                self.log(f"{agent_type.name} moved from {current_position} to {new_position}")
                 self.agent_positions[agent_type] = new_position
 
             # Check if the current node needs cleaning
             if self.grid[current_position[0], current_position[1]] == Cell.DRYTRASH.value:
                 self.grid[current_position[0], current_position[1]] = Cell.EMPTY.value
-                print(f"{agent_type.name} cleaned cell at {current_position}")
+                self.log(f"{agent_type.name} cleaned cell at {current_position}")
 
         # Set the cell value to EMPTY at the final position
         final_position = self.agent_positions[agent_type]

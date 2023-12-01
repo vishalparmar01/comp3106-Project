@@ -1,6 +1,6 @@
 import numpy as np
 
-from agent.agent_manager import AgentManager, AgentType, AgentLocations
+from agent.agent_manager import AgentLocations, AgentManager, AgentType, LoggerFunction
 from grid.grid import Cell
 
 
@@ -10,7 +10,7 @@ class Agent:
         self.x = x
         self.y = y
 
-    def tick(self, other_agents: dict[AgentType: tuple[int, int]]) -> None:
+    def tick(self, other_agents: AgentLocations) -> None:
         # Temp testing behaviour: clean current square if dirty, move down if not
         if self.grid[self.x, self.y]:
             self.grid[self.x, self.y] = Cell.EMPTY.value
@@ -44,8 +44,8 @@ CLASS_MAP = {
 
 
 class SeparateAgents(AgentManager):
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
-        super().__init__(grid, locations)
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, log: LoggerFunction):
+        super().__init__(grid, locations, log)
         self.agents = {agent: CLASS_MAP[agent](grid, x, y) for agent, (x, y) in locations.items()}
 
     def tick(self) -> None:

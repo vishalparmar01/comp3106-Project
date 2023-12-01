@@ -2,9 +2,10 @@ from typing import Type
 
 from textual.app import App, ComposeResult
 from textual.color import Color
+from textual.containers import HorizontalScroll
 from textual.events import MouseMove, Click
 from textual.timer import Timer
-from textual.widgets import Footer, Header
+from textual.widgets import Footer, Header, RichLog
 from textual_canvas import Canvas
 
 from agent.agent_manager import AgentManager, AgentType
@@ -15,7 +16,8 @@ colours = {
     Cell.EMPTY: Color(255, 255, 255),
     Cell.DRYTRASH: Color(255, 0, 0),
     Cell.WETTRASH: Color(0, 0, 255),
-    Cell.DUSTY: Color(127, 0, 0),
+    Cell.DUSTY: Color(63, 0, 0),
+    Cell.SOAKED: Color(0, 0, 63),
     Cell.BIN: Color(0, 255, 0),
     Cell.WALL: Color(0, 0, 0),
     AgentType.GARBAGE: Color(255, 255, 0),
@@ -30,11 +32,14 @@ class Simulator(App[None]):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("p", "toggle_pause", "Toggle pause/resume"),
+        ("l", "toggle_logs", "Toggle logs"),
         ("e", "select_erase", "Place empty"),
         ("b", "select_bin", "Place bin"),
         ("o", "select_obstacle", "Place obstacle"),
         ("d", "select_trash", "Place dry trash"),
         ("w", "select_wet", "Place wet trash"),
+        ("d", "select_dusty", "Place dusty square"),
+        ("s", "select_soaked", "Place soaked square"),
     ]
 
     def __init__(
@@ -68,8 +73,11 @@ class Simulator(App[None]):
         self.canvas = Canvas(cols * scale_factor, rows * scale_factor, color=Color(255, 255, 255))
         self.brush = Cell.EMPTY
 
+        self.logger = RichLog()
+        self.logger.display = False
+
         self.scale_factor = scale_factor
-        self.agents = Manager(self.grid, get_start_positions(self.grid))
+        self.agents = Manager(self.grid, get_start_positions(self.grid), self.logger.write)
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
@@ -83,7 +91,9 @@ class Simulator(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield self.canvas
+        with HorizontalScroll():
+            yield self.canvas
+            yield self.logger
         yield Footer()
 
     def draw_agents(self):
@@ -120,6 +130,9 @@ class Simulator(App[None]):
 
         self.paused = not self.paused
 
+    def action_toggle_logs(self) -> None:
+        self.logger.display = not self.logger.display
+
     def action_select_erase(self) -> None:
         self.brush = Cell.EMPTY
 
@@ -134,6 +147,12 @@ class Simulator(App[None]):
 
     def action_select_wet(self) -> None:
         self.brush = Cell.WETTRASH
+
+    def action_select_dusty(self) -> None:
+        self.brush = Cell.DUSTY
+
+    def action_select_soaked(self) -> None:
+        self.brush = Cell.SOAKED
 
     def handle_click(self, raw_x: int, raw_y: int):
         # Calculate the grid coordinates based on the clicked pixel

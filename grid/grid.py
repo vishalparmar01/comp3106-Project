@@ -11,6 +11,7 @@ class Cell(Enum):
     WETTRASH = 1
     DRYTRASH = 2
     DUSTY = 3
+    SOAKED = 6
     BIN = 4
     WALL = 5
 
