@@ -26,7 +26,6 @@ def create_dynamic_grid(rows: int, columns: int):
     max_target_cells = total_cells * 0.75  # 3/4 or less of the grid should have trash
 
     target_cells = randint(min_target_cells, max_target_cells)
-    print(target_cells)
     trash_cells = 0
 
     for i in range(rows):
@@ -44,14 +43,10 @@ def create_dynamic_grid(rows: int, columns: int):
 
     return grid
 
-
-
-
 def print_grid(grid):
     # Print the grid
     for row in grid:
         print(" ".join(map(str, row)))
-
 
 def get_start_positions(grid: np.ndarray) -> AgentLocations:
     return {
@@ -59,7 +54,6 @@ def get_start_positions(grid: np.ndarray) -> AgentLocations:
         AgentType.VACUUM: (1, 0),
         AgentType.MOP: (2, 0),
     }
-
 
 # Example usage
 # rows = int(input("Enter the number of rows: "))

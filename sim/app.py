@@ -78,10 +78,13 @@ class Simulator(App[None]):
         self.brush = Cell.EMPTY
 
         self.logger = RichLog()
-        self.logger.display = False
 
+        self.logger.display = False
         self.scale_factor = scale_factor
         self.original_scale_factor = scale_factor
+        self.logger.write("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
+        self.logger.write("Cyan Agent: Vaccum Cleaner -> Clean dusty squares.")
+        self.logger.write("Pink Agent: Mop -> Clean soaked sqaures.")
         self.agents = Manager(self.grid, get_start_positions(self.grid), self.logger.write)
 
     def draw_grid(self) -> None:
