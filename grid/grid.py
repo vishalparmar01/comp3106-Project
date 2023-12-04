@@ -21,10 +21,20 @@ def create_dynamic_grid(rows: int, columns: int):
     grid = np.zeros((rows, columns), dtype=np.uint8)
 
     bin_placed = False
+    total_cells = rows * columns
+    min_target_cells = total_cells * 0.65 # At least 1/2 of the grid should have trash
+    max_target_cells = total_cells * 0.75  # 3/4 or less of the grid should have trash
+
+    target_cells = randint(min_target_cells, max_target_cells)
+    print(target_cells)
+    trash_cells = 0
+
     for i in range(rows):
         for j in range(columns):
-            if randint(0, 1):  # Randomly choose whether to place wet or trash
-                grid[i, j] = choice([Cell.WETTRASH, Cell.DRYTRASH]).value  # Indicate the presence of an element in the grid
+            if trash_cells < target_cells and randint(0, 1):  # Randomly choose whether to place trash
+                trash_type = choice([Cell.WETTRASH, Cell.DRYTRASH, Cell.DUSTY, Cell.SOAKED]).value
+                grid[i, j] = trash_type
+                trash_cells += 1
             elif not bin_placed:
                 grid[i, j] = Cell.BIN.value
                 bin_placed = True
@@ -33,6 +43,8 @@ def create_dynamic_grid(rows: int, columns: int):
         grid[0, 0] = Cell.BIN.value
 
     return grid
+
+
 
 
 def print_grid(grid):
