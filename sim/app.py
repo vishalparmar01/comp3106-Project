@@ -156,6 +156,9 @@ class Simulator(App[None]):
         assert self.timer
         try:
             self.agents.tick()
+            agents = self.agents.agent_locations()
+            if len(set(agent for agent in agents.values())) != len(agents):
+                print("ERROR: AGENTS OVERLAPPING")
             self.draw_grid()
             self.draw_agents()
         except Exception as exc:
