@@ -46,6 +46,12 @@ if __name__ == "__main__":
         type=float,
         default=0.5
     )
+    parser.add_argument(
+        '-e',
+        '--seed',
+        help="RNG seed",
+        type=float
+    )
     args = parser.parse_args()
 
     simulator = app.Simulator(
@@ -53,7 +59,8 @@ if __name__ == "__main__":
         args.columns,
         SeparateAgents if args.individual else AStarController,
         args.scale,
-        args.delta
+        args.delta,
+        args.seed
     )
     simulator.run()
 

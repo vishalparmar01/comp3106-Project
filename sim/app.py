@@ -1,5 +1,7 @@
+from random import seed, random
 from typing import Type
 
+import numpy as np
 from textual.app import App, ComposeResult
 from textual.color import Color
 from textual.containers import HorizontalScroll
@@ -53,6 +55,7 @@ class Simulator(App[None]):
         Manager: Type[AgentManager],
         scale_factor: int = 2,
         speed: float = 1,
+        rng_seed: int = None,
         **kwargs
     ):
         """
@@ -64,6 +67,10 @@ class Simulator(App[None]):
         :param kwargs: Passed to ``textual.App.__init__``
         """
         super().__init__(**kwargs)
+
+        if rng_seed is None:
+            rng_seed = random()
+        seed(rng_seed)
 
         self.rows = rows
         self.cols = cols
@@ -78,14 +85,18 @@ class Simulator(App[None]):
         self.brush = Cell.EMPTY
 
         self.logger = RichLog()
+        # self.logger.display = False
+        self.logger.write(f"RNG seed: {rng_seed}")
+        self.logger.write("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
+        self.logger.write("Cyan Agent: Vacuum Cleaner -> Clean dusty squares.")
+        self.logger.write("Pink Agent: Mop -> Clean soaked squares.")
 
-        self.logger.display = False
         self.scale_factor = scale_factor
         self.original_scale_factor = scale_factor
-        self.logger.write("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
-        self.logger.write("Cyan Agent: Vaccum Cleaner -> Clean dusty squares.")
-        self.logger.write("Pink Agent: Mop -> Clean soaked sqaures.")
+
         self.agents = Manager(self.grid, get_start_positions(self.grid), self.logger.write)
+
+        self.ticks = 0
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
@@ -120,9 +131,19 @@ class Simulator(App[None]):
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
-        self.agents.tick()
-        self.draw_grid()
-        self.draw_agents()
+        self.ticks += 1
+        try:
+            self.agents.tick()
+            self.draw_grid()
+            self.draw_agents()
+        except Exception as exc:
+            self.timer.pause()
+            self.paused = True
+            self.logger.write(exc)
+        if sum(np.sum(self.grid[self.grid == cell.value]) for cell in [Cell.SOAKED, Cell.WETTRASH, Cell.DUSTY, Cell.DRYTRASH]) == 0:
+            self.timer.pause()
+            self.paused = True
+            self.logger.write(f"Completed in {self.ticks} ticks")
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""
@@ -177,8 +198,8 @@ class Simulator(App[None]):
 
     def handle_click(self, raw_x: int, raw_y: int):
         # Calculate the grid coordinates based on the clicked pixel
-        x = raw_x // self.scale_factor
-        y = raw_y // (self.scale_factor // 2)
+        x = (raw_x + int(self.canvas.scroll_x)) // self.scale_factor
+        y = (raw_y + int(self.canvas.scroll_y)) // (self.scale_factor // 2)
 
         if x >= self.cols or y >= self.rows:
             return
@@ -190,10 +211,11 @@ class Simulator(App[None]):
         self.grid[x, y] = self.brush.value  # Adjust as needed based on your grid representation
 
     def on_click(self, event: Click) -> None:
-        self.handle_click(event.x, event.y)
+        if event.x == event.screen_x:
+            self.handle_click(event.x, event.y)
 
     def on_mouse_move(self, event: MouseMove) -> None:
-        if event.button != 0:
+        if event.button != 0 and event.x == event.screen_x:
             self.handle_click(event.x, event.y)
 
     def on_mouse_scroll_down(self, event: MouseScrollDown):
