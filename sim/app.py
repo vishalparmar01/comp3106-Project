@@ -12,6 +12,7 @@ from textual_canvas import Canvas
 
 from agent.agent_manager import AgentManager, AgentType
 from grid.grid import create_dynamic_grid, Cell, get_start_positions
+from sim.print import printer, print
 
 
 colours = {
@@ -46,6 +47,8 @@ class Simulator(App[None]):
         ("s", "select_soaked", "Place soaked square"),
         ("+", "zoom_in", "Zoom in"),
         ("-", "zoom_out", "Zoom out"),
+        ("r", "reset", "Reset"),
+        ("R", "reset_seed", "Reset w/ new seed"),
     ]
 
     def __init__(
@@ -55,7 +58,7 @@ class Simulator(App[None]):
         Manager: Type[AgentManager],
         scale_factor: int = 2,
         speed: float = 1,
-        rng_seed: int = None,
+        rng_seed: float | None = None,
         **kwargs
     ):
         """
@@ -68,9 +71,13 @@ class Simulator(App[None]):
         """
         super().__init__(**kwargs)
 
-        if rng_seed is None:
-            rng_seed = random()
-        seed(rng_seed)
+        self.seed = rng_seed if rng_seed is not None else random()
+        seed(self.seed)
+
+        self.logger = RichLog()
+        # self.logger.display = False
+        printer.print = lambda *args: self.logger.write(args) if len(args) > 1 else self.logger.write(args[0])
+        self.log_motd()
 
         self.rows = rows
         self.cols = cols
@@ -84,19 +91,19 @@ class Simulator(App[None]):
         self.canvas = Canvas(cols * scale_factor, rows * scale_factor, color=BACKGROUND_COLOUR)
         self.brush = Cell.EMPTY
 
-        self.logger = RichLog()
-        # self.logger.display = False
-        self.logger.write(f"RNG seed: {rng_seed}")
-        self.logger.write("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
-        self.logger.write("Cyan Agent: Vacuum Cleaner -> Clean dusty squares.")
-        self.logger.write("Pink Agent: Mop -> Clean soaked squares.")
-
         self.scale_factor = scale_factor
         self.original_scale_factor = scale_factor
 
-        self.agents = Manager(self.grid, get_start_positions(self.grid), self.logger.write)
+        self.Manager = Manager
+        self.agents = Manager(self.grid, get_start_positions(self.grid))
 
         self.ticks = 0
+
+    def log_motd(self):
+        print(f"RNG seed: {self.seed}")
+        print("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
+        print("Cyan Agent: Vacuum Cleaner -> Clean dusty squares.")
+        print("Pink Agent: Mop -> Clean soaked squares.")
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
@@ -129,9 +136,24 @@ class Simulator(App[None]):
         self.draw_grid()
         self.draw_agents()
 
+    def finished_sim(self) -> bool:
+        grid_finished = sum(
+            np.sum(self.grid[self.grid == cell.value]) for cell in [
+                Cell.SOAKED,
+                Cell.WETTRASH,
+                Cell.DUSTY,
+                Cell.DRYTRASH
+            ]
+        ) == 0
+        agents_finished = self.agents.finished()
+        if agents_finished and not grid_finished:
+            self.log("Error: Agents incorrectly think grid is clean")
+        return agents_finished and grid_finished
+
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
         self.ticks += 1
+        assert self.timer
         try:
             self.agents.tick()
             self.draw_grid()
@@ -139,11 +161,11 @@ class Simulator(App[None]):
         except Exception as exc:
             self.timer.pause()
             self.paused = True
-            self.logger.write(exc)
-        if sum(np.sum(self.grid[self.grid == cell.value]) for cell in [Cell.SOAKED, Cell.WETTRASH, Cell.DUSTY, Cell.DRYTRASH]) == 0:
+            print(exc)
+        if self.finished_sim():
             self.timer.pause()
             self.paused = True
-            self.logger.write(f"Completed in {self.ticks} ticks")
+            print(f"Completed in {self.ticks} ticks")
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""
@@ -155,6 +177,7 @@ class Simulator(App[None]):
 
     def action_toggle_pause(self) -> None:
         """Toggles the timer."""
+        assert self.timer
         if self.paused:
             self.timer.resume()
         else:
@@ -206,6 +229,8 @@ class Simulator(App[None]):
 
         # Change the color of the clicked grid square to green
         self.draw_point(x, y, colours[self.brush])  # You can use any color you want
+        if (x, y) in self.agents.agent_locations().values():
+            self.draw_agents()
 
         # Update the grid to indicate the presence of an element (e.g., bin)
         self.grid[x, y] = self.brush.value  # Adjust as needed based on your grid representation
@@ -225,3 +250,23 @@ class Simulator(App[None]):
     def on_mouse_scroll_up(self, event: MouseScrollUp):
         if event.meta:
             self.action_zoom_out()
+
+    def reset(self, change_seed: bool):
+        self.logger.clear()
+        self.log_motd()
+        if change_seed:
+            self.seed = random()
+        seed(self.seed)
+        if not self.paused:
+            self.paused = True
+            self.timer.pause()
+        self.grid = create_dynamic_grid(self.cols, self.rows)
+        self.agents = self.Manager(self.grid, get_start_positions(self.grid))
+        self.ticks = 0
+        self.draw_ui()
+
+    def action_reset(self):
+        self.reset(False)
+
+    def action_reset_seed(self):
+        self.reset(True)

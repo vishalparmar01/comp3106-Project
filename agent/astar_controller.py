@@ -4,8 +4,9 @@ from typing import List, Tuple
 
 import numpy as np
 
-from agent.agent_manager import AgentLocations, AgentManager, AgentType, LoggerFunction
+from agent.agent_manager import AgentLocations, AgentManager, AgentType
 from grid.grid import Cell
+from sim.print import print
 
 
 class Action(Enum):
@@ -16,8 +17,8 @@ class Action(Enum):
 
 
 class AStarController(AgentManager):
-    def __init__(self, grid: np.ndarray, locations: AgentLocations, log: LoggerFunction):
-        super().__init__(grid, locations, log)
+    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+        super().__init__(grid, locations)
         self.agent_positions = locations
 
     def agent_locations(self) -> AgentLocations:
@@ -111,13 +112,13 @@ class AStarController(AgentManager):
                 action == Action.MOVE_LEFT or action == Action.MOVE_RIGHT:
                 # Update agent positions if it's a movement action
                 new_position = self.apply_action(current_position, action)
-                self.log(f"{agent_type.name} moved from {current_position} to {new_position}")
+                print(f"{agent_type.name} moved from {current_position} to {new_position}")
                 self.agent_positions[agent_type] = new_position
 
             # Check if the current node needs cleaning
             if self.grid[current_position[0], current_position[1]] == Cell.DRYTRASH.value:
                 self.grid[current_position[0], current_position[1]] = Cell.EMPTY.value
-                self.log(f"{agent_type.name} cleaned cell at {current_position}")
+                print(f"{agent_type.name} cleaned cell at {current_position}")
 
         # Set the cell value to EMPTY at the final position
         final_position = self.agent_positions[agent_type]
