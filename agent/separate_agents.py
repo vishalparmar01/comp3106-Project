@@ -20,6 +20,26 @@ def agent_distances(locations: AgentLocations, agent: AgentType) -> dict[AgentTy
     }
 
 
+def iter_manhattan_radius(x: int, y: int, grid: np.ndarray[np.uint8], width: int):
+    """Iterates over each valid coordinate with a manhattan distance of ``width`` of the agent."""
+    for i in range(max(0, width - x), min(width, y + 1)):
+        yield x - width + i, y - i
+    for i in range(max(0, width - y), min(width, grid.shape[0] - x)):
+        yield x + i, y - width + i
+    for i in range(max(0, x + width - grid.shape[0] + 1), min(width, grid.shape[1] - y)):
+        yield x + width - i, y + i
+    for i in range(max(0, y + width - grid.shape[1] + 1), min(width, x + 1)):
+        yield x - i, y + width - i
+
+
+def iter_closest(x: int, y: int, grid: np.ndarray[np.uint8]):
+    """Iterates over every valid index in spirals starting with the closest to the agent."""
+    yield x, y
+    for width in range(1, max(x, grid.shape[0] - x - 1) + max(y, grid.shape[1] - y - 1) + 1):
+        for coords in iter_manhattan_radius(x, y, grid, width):
+            yield coords
+
+
 class Agent:
     agent_type: AgentType
 
@@ -62,18 +82,22 @@ class Agent:
             return True
         return False
 
-    def move_closer(self) -> None:
+    def move_closer(self, other_agents: AgentMap) -> None:
         assert self.goal
-        if self.y < self.goal[1]:
+        other_locations = {agent_type: agent.pos for agent_type, agent in other_agents.items()}
+        if self.y < self.goal[1] and (self.x, self.y + 1) not in other_locations.values():
             self.y += 1
-        elif self.y > self.goal[1]:
+        elif self.y > self.goal[1] and (self.x, self.y - 1) not in other_locations.values():
             self.y -= 1
-        elif self.x < self.goal[0]:
+        elif self.x < self.goal[0] and (self.x + 1, self.y) not in other_locations.values():
             self.x += 1
-        elif self.x > self.goal[0]:
+        elif self.x > self.goal[0] and (self.x - 1, self.y) not in other_locations.values():
             self.x -= 1
         else:
-            print(f"{self}: Tried to move to goal but already at goal")
+            print(f"{self}: Tried to move to goal but already at goal, or could not otherwise move")
+            (x, y) = self.maximize_personal_space(other_locations)
+            self.x += x
+            self.y += y
 
     def clean_up(self) -> None:
         """Sets the grid at the current index to be empty."""
@@ -81,14 +105,13 @@ class Agent:
             self.grid[self.pos] = Cell.EMPTY.value
 
     def tick(self, other_agents: AgentMap) -> None:
-        print(self, self.goal)
-        if self.run_away(other_agents) or not self.goal:
-            return
         if self.pos == self.goal:
             self.clean_up()
             self.goal = None
+        elif self.run_away(other_agents) or not self.goal:
+            return
         else:
-            self.move_closer()
+            self.move_closer(other_agents)
 
     def location(self) -> Point:
         return self.x, self.y
@@ -97,39 +120,28 @@ class Agent:
     def pos(self) -> Point:
         return self.x, self.y
 
-    def iter_manhattan_radius(self, width: int):
-        """Iterates over each valid coordinate with a manhattan distance of ``width`` of the agent."""
-        for i in range(max(0, width - self.x), min(width, self.y + 1)):
-            yield self.x - width + i, self.y - i
-        for i in range(max(0, width - self.y), min(width, self.grid.shape[0] - self.x)):
-            yield self.x + i, self.y - width + i
-        for i in range(max(0, self.x + width - self.grid.shape[0] + 1), min(width, self.grid.shape[1] - self.y)):
-            yield self.x + width - i, self.y + i
-        for i in range(max(0, self.y + width - self.grid.shape[1] + 1), min(width, self.x + 1)):
-            yield self.x - i, self.y + width - i
-
-    def iter_closest(self):
-        """Iterates over every valid index in spirals starting with the closest to the agent."""
-        yield self.pos
-        for width in range(1, max(self.x, self.grid.shape[0] - self.x - 1) + max(self.y, self.grid.shape[1] - self.y - 1) + 1):
-            for coords in self.iter_manhattan_radius(width):
-                yield coords
-
     def find_nearest_cell(self, *cell_types: Cell) -> Point | None:
         """Returns the coordinates of the nearest cell with the given value."""
         values = tuple(cell.value for cell in cell_types)
-        for coords in self.iter_closest():
+        for coords in iter_closest(self.x, self.y, self.grid):
             if self.grid[coords] in values:
                 return coords
 
-    def movement_heuristics(self, other_locations: AgentLocations) -> dict[Point, int]:
-        ...
+    def movement_distance_heuristic(self, *cell_types: Cell) -> dict[Point, int]:
+        distances: dict[Point, int] = {}
+        values = tuple(cell.value for cell in cell_types)
+        for (x, y) in [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)]:
+            distances[(x, y)] = sum(self.grid.shape)
+            for coords in iter_closest(self.x + x, self.y + y, self.grid):
+                if self.grid[coords] in values:
+                    distances[(x, y)] = manhattan_distance((self.x + x, self.y + y), coords)
+                    break
+        return distances
 
 
 class Garbage(Agent):
     def __init__(self, grid: np.ndarray[np.uint8], x: int, y: int):
         super().__init__(grid, x, y)
-        self.bin = self.find_bin()
         self.current_trash = 0
         self.trash_capacity = 5
         self.agent_type = AgentType.GARBAGE
@@ -139,24 +151,17 @@ class Garbage(Agent):
 
     def update_goal(self):
         if self.current_trash >= self.trash_capacity:
-            self.goal = self.bin
+            self.goal = self.find_nearest_cell(Cell.BIN)
         else:
-            self.goal = self.find_nearest_cell(Cell.WETTRASH, Cell.DRYTRASH) or self.bin
+            self.goal = self.find_nearest_cell(Cell.WETTRASH, Cell.DRYTRASH) or self.find_nearest_cell(Cell.BIN)
 
     def tick(self, other_agents: AgentMap) -> None:
         if not self.goal:
             self.update_goal()
         super().tick(other_agents)
 
-    def find_bin(self) -> Point:
-        for i in range(self.grid.shape[0]):
-            for j in range(self.grid.shape[1]):
-                if self.grid[i, j] == Cell.BIN.value:
-                    return i, j
-        raise Exception("Could not find bin")
-
     def clean_up(self) -> None:
-        if self.pos == self.bin:
+        if self.grid[self.pos] == Cell.BIN.value:
             self.current_trash = 0
         elif Cell(self.grid[self.pos]) in (Cell.WETTRASH, Cell.DRYTRASH):
             self.current_trash += 1
