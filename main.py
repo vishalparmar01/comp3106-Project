@@ -50,7 +50,29 @@ if __name__ == "__main__":
         '-e',
         '--seed',
         help="RNG seed",
-        type=float
+        type=float,
+        default=None
+    )
+    parser.add_argument(
+        '-f',
+        '--fill',
+        help="Proportion of dirty squares [0, 1]",
+        type=float,
+        default=0.65
+    )
+    parser.add_argument(
+        '-g',
+        '--garbage',
+        help="Proportion of trash squares out of the dirty squares [0, 1]",
+        type=float,
+        default=0.4
+    )
+    parser.add_argument(
+        '-b',
+        '--bins',
+        help="Number of bins",
+        type=int,
+        default=None
     )
     args = parser.parse_args()
 
@@ -60,7 +82,10 @@ if __name__ == "__main__":
         SeparateAgents if args.individual else AStarController,
         args.scale,
         args.delta,
-        args.seed
+        args.seed,
+        args.fill,
+        args.garbage,
+        args.bins or max(args.rows, args.columns),
     )
     simulator.run()
 

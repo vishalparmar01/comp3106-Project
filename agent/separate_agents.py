@@ -119,7 +119,7 @@ class Agent:
             self.grid[self.pos] = Cell.EMPTY.value
 
     def tick(self, other_agents: AgentMap) -> None:
-        print(self)
+        # print(self)
         self.goal = self.goal or self.find_nearest_cell(*self.cell_types)
         if self.pos == self.goal:
             self.clean_up()

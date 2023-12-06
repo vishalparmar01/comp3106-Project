@@ -6,7 +6,7 @@ from rich.text import Text
 from rich.traceback import Traceback
 from textual.app import App, ComposeResult
 from textual.color import Color
-from textual.containers import Container, Horizontal, HorizontalScroll, Vertical
+from textual.containers import Container, Horizontal, Vertical
 from textual.events import Click, MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.timer import Timer
 from textual.widgets import Footer, Header, RichLog, Label
@@ -34,6 +34,7 @@ BACKGROUND_COLOUR = colours[Cell.EMPTY]
 
 
 def agent_legend():
+    yield Label("Agents:")
     for agent in AgentType:
         text = Text(f"██ {agent.name.title()}")
         text.stylize(colours[agent].css, 0, 2)
@@ -41,6 +42,7 @@ def agent_legend():
 
 
 def cell_legend():
+    yield Label("Cells: ")
     for cell in Cell:
         if cell in (Cell.WALL, Cell.EMPTY):
             continue
@@ -76,9 +78,12 @@ class Simulator(App[None]):
         rows: int,
         cols: int,
         Manager: Type[AgentManager],
-        scale_factor: int = 2,
-        speed: float = 1,
-        rng_seed: float | None = None,
+        scale_factor: int,
+        speed: float,
+        rng_seed: float | None,
+        grid_fill: float,
+        grid_garbage_proportion: float,
+        grid_bins: int,
         **kwargs
     ):
         """
@@ -101,7 +106,8 @@ class Simulator(App[None]):
 
         self.rows = rows
         self.cols = cols
-        self.grid = create_dynamic_grid(cols, rows)
+        self.regenerate_grid = lambda: create_dynamic_grid(cols, rows, grid_fill, grid_garbage_proportion, grid_bins)
+        self.grid = self.regenerate_grid()
 
         self.paused = True
 
@@ -296,7 +302,7 @@ class Simulator(App[None]):
         if 0 == event.x != event.screen_x:
             self.resizing = True
 
-    def on_mouse_up(self, _event: MouseDown):
+    def on_mouse_up(self, _event: MouseUp):
         self.resizing = False
 
     def reset(self, change_seed: bool):
@@ -308,7 +314,7 @@ class Simulator(App[None]):
         if not self.paused:
             self.paused = True
             self.timer.pause()
-        self.grid = create_dynamic_grid(self.cols, self.rows)
+        self.grid = self.regenerate_grid()
         self.agents = self.Manager(self.grid, get_start_positions(self.grid))
         self.ticks = 0
         self.calculation_time = 0

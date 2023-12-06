@@ -1,5 +1,5 @@
 from enum import Enum
-from random import choice, random
+from random import choice, random, sample
 
 import numpy as np
 
@@ -16,22 +16,29 @@ class Cell(Enum):
     WALL = 5
 
 
-def create_dynamic_grid(rows: int, columns: int):
-    # Create a dynamic grid with the specified number of rows and columns
+def create_dynamic_grid(rows: int, columns: int, fill: float, garbage: float, bins: int):
+    """Create a dynamic grid with the specified number of rows and columns"""
+    assert bins < rows * columns
     grid = np.zeros((rows, columns), dtype=np.uint8)
-
-    bin_placed = False
 
     for i in range(rows):
         for j in range(columns):
-            if random() < 0.65:  # Randomly choose whether to place trash
-                grid[i, j] = choice([Cell.WETTRASH, Cell.DRYTRASH, Cell.DUSTY, Cell.SOAKED]).value
-            elif not bin_placed:
-                grid[i, j] = Cell.BIN.value
-                bin_placed = True
+            if random() < fill:  # Randomly choose whether to place trash
+                grid[i, j] = choice(
+                    [Cell.WETTRASH, Cell.DRYTRASH]
+                    if random() < garbage else
+                    [Cell.DUSTY, Cell.SOAKED]
+                ).value
 
-    if not bin_placed:
-        grid[0, 0] = Cell.BIN.value
+    empty = np.argwhere(grid == 0)
+    bin_indices = np.array(sample(list(empty), min(len(empty), bins)))
+    if len(empty) < bins:
+        more_indices = np.array(sample(list(np.argwhere(grid)), bins - len(empty)))
+        if len(empty):
+            bin_indices = np.concatenate((bin_indices, more_indices))
+        else:
+            bin_indices = more_indices
+    grid[bin_indices[:, 0], bin_indices[:, 1]] = Cell.BIN.value
 
     return grid
 
