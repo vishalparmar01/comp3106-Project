@@ -9,9 +9,9 @@ from agent.agent_manager import AgentType, AgentLocations
 class Cell(Enum):
     EMPTY = 0
     WETTRASH = 1
+    SOAKED = 6
     DRYTRASH = 2
     DUSTY = 3
-    SOAKED = 6
     BIN = 4
     WALL = 5
 

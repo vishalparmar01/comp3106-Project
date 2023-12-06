@@ -67,3 +67,4 @@ if __name__ == "__main__":
     # print(simulator.grid.T)
     # print(simulator.agents)
     print(simulator.seed)
+    print(f"{simulator.calculation_time}/{simulator.ticks}={simulator.calculation_time/max(1, simulator.ticks)} s/t")

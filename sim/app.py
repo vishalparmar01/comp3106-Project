@@ -1,13 +1,15 @@
 from random import seed, random
+from time import perf_counter
 from typing import Type
 
+from rich.text import Text
 from rich.traceback import Traceback
 from textual.app import App, ComposeResult
 from textual.color import Color
-from textual.containers import HorizontalScroll
-from textual.events import Click, MouseMove, MouseScrollDown, MouseScrollUp
+from textual.containers import Container, Horizontal, HorizontalScroll, Vertical
+from textual.events import Click, MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.timer import Timer
-from textual.widgets import Footer, Header, RichLog
+from textual.widgets import Footer, Header, RichLog, Label
 from textual_canvas import Canvas
 
 from agent.agent_manager import AgentManager, AgentType
@@ -24,11 +26,27 @@ colours = {
     Cell.BIN: Color(0, 255, 0),
     Cell.WALL: Color(0, 0, 0),
     AgentType.GARBAGE: Color(255, 255, 0),
-    AgentType.VACUUM: Color(0, 255, 255),
-    AgentType.MOP: Color(255, 0, 255),
+    AgentType.VACUUM: Color(255, 0, 255),
+    AgentType.MOP: Color(0, 255, 255),
 }
 
 BACKGROUND_COLOUR = colours[Cell.EMPTY]
+
+
+def agent_legend():
+    for agent in AgentType:
+        text = Text(f"██ {agent.name.title()}")
+        text.stylize(colours[agent].css, 0, 2)
+        yield Label(text)
+
+
+def cell_legend():
+    for cell in Cell:
+        if cell in (Cell.WALL, Cell.EMPTY):
+            continue
+        text = Text(f"██ {cell.name.title()}")
+        text.stylize(colours[cell].css, 0, 2)
+        yield Label(text)
 
 
 class Simulator(App[None]):
@@ -50,6 +68,8 @@ class Simulator(App[None]):
         ("r", "reset", "Reset"),
         ("R", "reset_seed", "Reset w/ new seed"),
     ]
+
+    CSS_PATH = "styles.tcss"
 
     def __init__(
         self,
@@ -98,6 +118,9 @@ class Simulator(App[None]):
         self.agents = Manager(self.grid, get_start_positions(self.grid))
 
         self.ticks = 0
+        self.calculation_time = 0.
+
+        self.resizing = False
 
     def log_motd(self):
         print(f"RNG seed: {self.seed}")
@@ -116,8 +139,15 @@ class Simulator(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with HorizontalScroll():
+        with Container():
             yield self.canvas
+            with Vertical():
+                with Horizontal():
+                    for label in agent_legend():
+                        yield label
+                with Horizontal():
+                    for label in cell_legend():
+                        yield label
             yield self.logger
         yield Footer()
 
@@ -155,7 +185,10 @@ class Simulator(App[None]):
         self.ticks += 1
         assert self.timer
         try:
+            pre_tick = perf_counter()
             self.agents.tick()
+            post_tick = perf_counter()
+            self.calculation_time += post_tick - pre_tick
             agents = self.agents.agent_locations()
             if len(set(agent for agent in agents.values())) != len(agents):
                 print("ERROR: AGENTS OVERLAPPING")
@@ -169,6 +202,10 @@ class Simulator(App[None]):
             self.timer.pause()
             self.paused = True
             print(f"Completed in {self.ticks} ticks")
+            print(f"Calculation time of {self.calculation_time} seconds")
+            print(f"{self.calculation_time/self.ticks} seconds/tick")
+            self.ticks = 0
+            self.calculation_time = 0.
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""
@@ -243,7 +280,11 @@ class Simulator(App[None]):
             self.handle_click(event.x, event.y)
 
     def on_mouse_move(self, event: MouseMove) -> None:
-        if event.button != 0 and event.x == event.screen_x:
+        if event.button == 0:
+            self.resizing = False
+        if self.resizing:
+            self.logger.styles.width = self.screen.size.width - event.screen_x
+        elif event.button != 0 and event.x == event.screen_x:
             self.handle_click(event.x, event.y)
 
     def on_mouse_scroll_down(self, event: MouseScrollDown):
@@ -253,6 +294,13 @@ class Simulator(App[None]):
     def on_mouse_scroll_up(self, event: MouseScrollUp):
         if event.meta:
             self.action_zoom_out()
+
+    def on_mouse_down(self, event: MouseDown):
+        if 0 == event.x != event.screen_x:
+            self.resizing = True
+
+    def on_mouse_up(self, _event: MouseDown):
+        self.resizing = False
 
     def reset(self, change_seed: bool):
         self.logger.clear()
@@ -266,6 +314,7 @@ class Simulator(App[None]):
         self.grid = create_dynamic_grid(self.cols, self.rows)
         self.agents = self.Manager(self.grid, get_start_positions(self.grid))
         self.ticks = 0
+        self.calculation_time = 0
         self.draw_ui()
 
     def action_reset(self):

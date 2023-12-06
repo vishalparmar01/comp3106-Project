@@ -1,0 +1,15 @@
+RichLog {
+	dock: right;
+	width: 50vw;
+	max-width: 95vw;
+	min-width: 10;
+	border: round orange 50%;
+}
+
+Vertical {
+	max-height: 2;
+}
+
+Label {
+	margin-right: 2;
+}
