@@ -19,7 +19,7 @@ class AgentManager(ABC):
     """API for interacting with a group of agents."""
 
     def __init__(self, grid: np.ndarray, locations: AgentLocations):
-        """Environment and initial agent locations"""
+        """Environment and initial agent locations."""
         self.grid = grid
 
     def tick(self) -> None:
@@ -35,4 +35,4 @@ class AgentManager(ABC):
         """Whether the agents are finished moving."""
 
     def __repr__(self) -> str:
-        """Representation of agents"""
+        """Representation of agents."""

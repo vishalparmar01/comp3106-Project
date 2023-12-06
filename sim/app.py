@@ -1,7 +1,7 @@
 from random import seed, random
 from typing import Type
 
-import numpy as np
+from rich.traceback import Traceback
 from textual.app import App, ComposeResult
 from textual.color import Color
 from textual.containers import HorizontalScroll
@@ -137,14 +137,14 @@ class Simulator(App[None]):
         self.draw_agents()
 
     def finished_sim(self) -> bool:
-        grid_finished = sum(
-            np.sum(self.grid[self.grid == cell.value]) for cell in [
+        grid_finished = not any(
+            cell.value in self.grid for cell in [
                 Cell.SOAKED,
                 Cell.WETTRASH,
                 Cell.DUSTY,
                 Cell.DRYTRASH
             ]
-        ) == 0
+        )
         agents_finished = self.agents.finished()
         if agents_finished and not grid_finished:
             self.log("Error: Agents incorrectly think grid is clean")
@@ -161,10 +161,10 @@ class Simulator(App[None]):
                 print("ERROR: AGENTS OVERLAPPING")
             self.draw_grid()
             self.draw_agents()
-        except Exception as exc:
+        except Exception:
             self.timer.pause()
             self.paused = True
-            print(exc)
+            print(Traceback(show_locals=True))
         if self.finished_sim():
             self.timer.pause()
             self.paused = True
