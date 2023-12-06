@@ -1,3 +1,6 @@
+from random import choice
+from typing import Any, Generator, Callable
+
 import numpy as np
 
 from agent.agent_manager import AgentLocations, AgentManager, AgentType, Point
@@ -8,15 +11,15 @@ from sim.print import print
 AgentMap = dict[AgentType, "Agent"]
 
 
-def manhattan_distance(x: Point, y: Point) -> int:
-    return abs(x[0] - y[0]) + abs(x[1] - y[1])
+def manhattan_distance(p1: Point, p2: Point) -> int:
+    return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
 
 
-def agent_distances(locations: AgentLocations, agent: AgentType) -> dict[AgentType, int]:
+def agent_distances(locations: AgentMap, agent: AgentType, test_pos: Point = None) -> dict[AgentType, int]:
     return {
-        other_agent: manhattan_distance(locations[agent], other_point)
-        for other_agent, other_point in locations.items()
-        if other_agent != agent
+        other_type: manhattan_distance(test_pos or locations[agent].pos, other_agent.pos) + other_agent.priority
+        for other_type, other_agent in locations.items()
+        if other_type != agent
     }
 
 
@@ -40,64 +43,73 @@ def iter_closest(x: int, y: int, grid: np.ndarray[np.uint8]):
             yield coords
 
 
+def best_keys(heuristic: dict[Point, int], metric: Callable[..., int]) -> set[Point]:
+    best_value = metric(heuristic.values())
+    return {point for point, h in heuristic.items() if h == best_value}
+
+
+def best_key(heuristic: dict[Point, int], metric: Callable[..., int]) -> Point:
+    # best_value = metric(heuristic.values())
+    # for point, h in heuristic.items():
+    #     if h == best_value:
+    #         return point
+    return first_in_set(best_keys(heuristic, metric))
+
+
+def first_in_set(s: set[Point]) -> Point:
+    # return next(iter(s))
+    return choice(list(s))
+
+
+MoveHeuristic = dict[Point, int]
+
+
 class Agent:
     agent_type: AgentType
+    cell_types: tuple[Cell, ...]
 
     def __init__(self, grid: np.ndarray[np.uint8], x: int, y: int):
         self.grid = grid
         self.x = x
         self.y = y
         self.goal: Point | None = None
+        self.priority = 0
 
     def __repr__(self):
         return f"{type(self).__name__} at {self.pos}"
 
-    def maximize_personal_space(self, other_locations: AgentLocations) -> Point:
-        distances = agent_distances(other_locations, self.agent_type)
-        best_movement = (0, 0)
-        best_min = min(distances.values())
-        for (x, y) in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
-            if 0 <= self.x + x < self.grid.shape[0] and 0 <= self.y + y < self.grid.shape[1]:
-                closest_agent = min(
-                    agent_distances(
-                        {
-                            **other_locations,
-                            self.agent_type: (self.x + x, self.y + y)
-                        },
-                        self.agent_type
-                    ).values()
-                )
-                if closest_agent > best_min:
-                    best_min = closest_agent
-                    best_movement = (x, y)
-        return best_movement
-
     def run_away(self, other_agents: AgentMap) -> bool:
         """Returns whether the agent had to get out of the way of other agents with higher priority."""
-        other_locations: AgentLocations = {agent_type: agent.pos for agent_type, agent in other_agents.items()}
         if self.goal is None:
-            (x, y) = self.maximize_personal_space(other_locations)
+            movements = self.personal_space_heuristic(other_agents)
+            if max(movements.values()) > 6:
+                return False
+            (x, y) = best_key(movements, max)
             self.x += x
             self.y += y
             return True
         return False
 
-    def move_closer(self, other_agents: AgentMap) -> None:
+    def move_closer(self, other_agents: AgentMap) -> Point:
         assert self.goal
-        other_locations = {agent_type: agent.pos for agent_type, agent in other_agents.items()}
-        if self.y < self.goal[1] and (self.x, self.y + 1) not in other_locations.values():
-            self.y += 1
-        elif self.y > self.goal[1] and (self.x, self.y - 1) not in other_locations.values():
-            self.y -= 1
-        elif self.x < self.goal[0] and (self.x + 1, self.y) not in other_locations.values():
-            self.x += 1
-        elif self.x > self.goal[0] and (self.x - 1, self.y) not in other_locations.values():
-            self.x -= 1
+        personal_space = self.personal_space_heuristic(other_agents)
+        closer_moves = self.grid_distance_heuristic(self.goal)
+        if personal_space[best_key(personal_space, min)] > 1:
+            best_moves = best_keys(closer_moves, min)
+            return best_key({move: h for move, h in personal_space.items() if move in best_moves}, max)
         else:
-            print(f"{self}: Tried to move to goal but already at goal, or could not otherwise move")
-            (x, y) = self.maximize_personal_space(other_locations)
-            self.x += x
-            self.y += y
+            best_moves = best_keys(personal_space, max)
+            closest_trash = self.type_distance_heuristic(*self.cell_types)
+            move_distances = {
+                point: manhattan_distance((point[0] + self.x, point[1] + self.y), trash)
+                for point, trash in closest_trash.items()
+                if point in best_moves
+            }
+            key = best_key(move_distances, min)
+            self.goal = closest_trash[key]
+            if len(best_moves) == 1:
+                return first_in_set(best_moves)
+            return key
 
     def clean_up(self) -> None:
         """Sets the grid at the current index to be empty."""
@@ -105,20 +117,25 @@ class Agent:
             self.grid[self.pos] = Cell.EMPTY.value
 
     def tick(self, other_agents: AgentMap) -> None:
+        self.goal = self.goal or self.find_nearest_cell(*self.cell_types)
         if self.pos == self.goal:
             self.clean_up()
             self.goal = None
         elif self.run_away(other_agents) or not self.goal:
             return
         else:
-            self.move_closer(other_agents)
-
-    def location(self) -> Point:
-        return self.x, self.y
+            (x, y) = self.move_closer(other_agents)
+            self.x += x
+            self.y += y
 
     @property
     def pos(self) -> Point:
         return self.x, self.y
+
+    def valid_moves(self) -> Generator[Point, Any, None]:
+        for (x, y) in [(0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)]:
+            if 0 <= self.x + x < self.grid.shape[0] and 0 <= self.y + y < self.grid.shape[1]:
+                yield x, y
 
     def find_nearest_cell(self, *cell_types: Cell) -> Point | None:
         """Returns the coordinates of the nearest cell with the given value."""
@@ -127,15 +144,32 @@ class Agent:
             if self.grid[coords] in values:
                 return coords
 
-    def movement_distance_heuristic(self, *cell_types: Cell) -> dict[Point, int]:
-        distances: dict[Point, int] = {}
+    def personal_space_heuristic(self, other_agents: AgentMap) -> MoveHeuristic:
+        distances: MoveHeuristic = {}
+        for (x, y) in self.valid_moves():
+            distances[(x, y)] = min(
+                agent_distances(
+                    other_agents,
+                    self.agent_type,
+                    (self.x + x, self.y + y)
+                ).values()
+            )
+        return distances
+
+    def type_distance_heuristic(self, *cell_types: Cell) -> dict[Point, Point]:
+        distances: dict[Point, Point] = {}
         values = tuple(cell.value for cell in cell_types)
-        for (x, y) in [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)]:
-            distances[(x, y)] = sum(self.grid.shape)
+        for (x, y) in self.valid_moves():
             for coords in iter_closest(self.x + x, self.y + y, self.grid):
                 if self.grid[coords] in values:
-                    distances[(x, y)] = manhattan_distance((self.x + x, self.y + y), coords)
+                    distances[(x, y)] = coords
                     break
+        return distances
+
+    def grid_distance_heuristic(self, cell: Point) -> MoveHeuristic:
+        distances: MoveHeuristic = {}
+        for (x, y) in self.valid_moves():
+            distances[(x, y)] = manhattan_distance((self.x + x, self.y + y), cell)
         return distances
 
 
@@ -145,27 +179,28 @@ class Garbage(Agent):
         self.current_trash = 0
         self.trash_capacity = 5
         self.agent_type = AgentType.GARBAGE
+        self.cell_types = (Cell.WETTRASH, Cell.DRYTRASH)
 
     def __repr__(self):
-        return super().__repr__() + f" ({self.current_trash}/{self.trash_capacity})"
-
-    def update_goal(self):
-        if self.current_trash >= self.trash_capacity:
-            self.goal = self.find_nearest_cell(Cell.BIN)
-        else:
-            self.goal = self.find_nearest_cell(Cell.WETTRASH, Cell.DRYTRASH) or self.find_nearest_cell(Cell.BIN)
+        trash = f"{self.current_trash}/{self.trash_capacity}"
+        searching = ','.join(cell.name for cell in self.cell_types)
+        return super().__repr__() + f" ({trash}, {searching})"
 
     def tick(self, other_agents: AgentMap) -> None:
-        if not self.goal:
-            self.update_goal()
+        if Cell.WETTRASH.value not in self.grid and Cell.DRYTRASH.value not in self.grid:
+            self.cell_types = (Cell.BIN,)
+        self.priority = int(self.current_trash == self.trash_capacity) + 1
         super().tick(other_agents)
 
     def clean_up(self) -> None:
         if self.grid[self.pos] == Cell.BIN.value:
             self.current_trash = 0
+            self.cell_types = (Cell.WETTRASH, Cell.DRYTRASH)
         elif Cell(self.grid[self.pos]) in (Cell.WETTRASH, Cell.DRYTRASH):
             self.current_trash += 1
-            if self.current_trash > self.trash_capacity:
+            if self.current_trash == self.trash_capacity:
+                self.cell_types = (Cell.BIN,)
+            elif self.current_trash > self.trash_capacity:
                 print(f"Garbage overflow {self.current_trash}")
             if self.grid[self.pos] == Cell.WETTRASH.value:
                 self.grid[self.pos] = Cell.SOAKED.value
@@ -174,7 +209,7 @@ class Garbage(Agent):
 
     def run_away(self, other_agents: AgentMap) -> bool:
         other_locations: AgentLocations = {agent_type: agent.pos for agent_type, agent in other_agents.items()}
-        distances = agent_distances(other_locations, AgentType.GARBAGE)
+        distances = agent_distances(other_agents, AgentType.GARBAGE)
         if self.current_trash == self.trash_capacity and min(distances.values()) >= 2:
             return False
         return super().run_away(other_agents)
@@ -184,20 +219,14 @@ class Vacuum(Agent):
     def __init__(self, grid: np.ndarray[np.uint8], x: int, y: int):
         super().__init__(grid, x, y)
         self.agent_type = AgentType.VACUUM
-
-    def tick(self, other_agents: AgentMap) -> None:
-        self.goal = self.goal or self.find_nearest_cell(Cell.DUSTY)
-        super().tick(other_agents)
+        self.cell_types = (Cell.DUSTY,)
 
 
 class Mop(Agent):
     def __init__(self, grid: np.ndarray[np.uint8], x: int, y: int):
         super().__init__(grid, x, y)
         self.agent_type = AgentType.MOP
-
-    def tick(self, other_agents: AgentMap) -> None:
-        self.goal = self.goal or self.find_nearest_cell(Cell.SOAKED)
-        super().tick(other_agents)
+        self.cell_types = (Cell.SOAKED,)
 
 
 CLASS_MAP = {
@@ -217,7 +246,7 @@ class SeparateAgents(AgentManager):
             agent.tick(self.agents)
 
     def agent_locations(self) -> AgentLocations:
-        return {agent_type: agent.location() for (agent_type, agent) in self.agents.items()}
+        return {agent_type: agent.pos for (agent_type, agent) in self.agents.items()}
 
     def finished(self) -> bool:
         for agent in self.agents.values():

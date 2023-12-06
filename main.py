@@ -64,6 +64,6 @@ if __name__ == "__main__":
     )
     simulator.run()
 
-    print(simulator.grid.T)
-    print(simulator.agents)
+    # print(simulator.grid.T)
+    # print(simulator.agents)
     print(simulator.seed)
