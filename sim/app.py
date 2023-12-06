@@ -124,9 +124,6 @@ class Simulator(App[None]):
 
     def log_motd(self):
         print(f"RNG seed: {self.seed}")
-        print("Yellow Agent: Garbage Collector -> Pick Dry and Wet Trash.")
-        print("Cyan Agent: Vacuum Cleaner -> Clean dusty squares.")
-        print("Pink Agent: Mop -> Clean soaked squares.")
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
