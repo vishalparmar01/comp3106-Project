@@ -1,7 +1,9 @@
+from functools import lru_cache
 from random import choice
 from typing import Any, Generator, Callable
 
 import numpy as np
+import shapely
 
 from agent.agent_manager import AgentLocations, AgentManager, AgentType, Point
 from grid.grid import Cell
@@ -93,7 +95,7 @@ class Agent:
     def move_closer(self, other_agents: AgentMap) -> Point:
         assert self.goal
         personal_space = self.personal_space_heuristic(other_agents)
-        closer_moves = self.grid_distance_heuristic(self.goal)
+        closer_moves = self.manhattan_distance_heuristic(self.goal)
         if personal_space[best_key(personal_space, min)] > 1:
             best_moves = best_keys(closer_moves, min)
             return best_key({move: h for move, h in personal_space.items() if move in best_moves}, max)
@@ -106,7 +108,7 @@ class Agent:
                 if point in best_moves
             }
             key = best_key(move_distances, min)
-            self.goal = closest_trash[key]
+            self.goal = None
             if len(best_moves) == 1:
                 return first_in_set(best_moves)
             return key
@@ -117,6 +119,7 @@ class Agent:
             self.grid[self.pos] = Cell.EMPTY.value
 
     def tick(self, other_agents: AgentMap) -> None:
+        print(self)
         self.goal = self.goal or self.find_nearest_cell(*self.cell_types)
         if self.pos == self.goal:
             self.clean_up()
@@ -139,10 +142,25 @@ class Agent:
 
     def find_nearest_cell(self, *cell_types: Cell) -> Point | None:
         """Returns the coordinates of the nearest cell with the given value."""
-        values = tuple(cell.value for cell in cell_types)
-        for coords in iter_closest(self.x, self.y, self.grid):
-            if self.grid[coords] in values:
-                return coords
+        # values = tuple(cell.value for cell in cell_types)
+        # for coords in iter_closest(self.x, self.y, self.grid):
+        #     if self.grid[coords] in values:
+        #         return coords
+        if not any(cell.value in self.grid for cell in cell_types):
+            return None
+        if Cell(self.grid[self.pos]) in cell_types:
+            return self.pos
+        hull_distance = self.convex_hull_grid_heuristic(*cell_types)
+        # print(hull_distance.T)
+        grid_distance = self.grid_distance_heuristic()
+        # print(grid_distance.T)
+        combined = (hull_distance + 1) * + grid_distance
+        combined[~self.grid_cell_mask(*cell_types)] = np.float64('inf')
+        # print(combined.T)
+        best = np.argmin(combined)
+        best_index = np.unravel_index(best, self.grid.shape)
+        # print(best_index)
+        return int(best_index[0]), int(best_index[1])
 
     def personal_space_heuristic(self, other_agents: AgentMap) -> MoveHeuristic:
         distances: MoveHeuristic = {}
@@ -166,11 +184,30 @@ class Agent:
                     break
         return distances
 
-    def grid_distance_heuristic(self, cell: Point) -> MoveHeuristic:
+    def manhattan_distance_heuristic(self, cell: Point) -> MoveHeuristic:
         distances: MoveHeuristic = {}
         for (x, y) in self.valid_moves():
             distances[(x, y)] = manhattan_distance((self.x + x, self.y + y), cell)
         return distances
+
+    def grid_cell_mask(self, *cell_types: Cell) -> np.ndarray[np.bool_]:
+        mask = np.zeros(self.grid.shape, dtype=np.bool_)
+        for cell_type in cell_types:
+            mask |= self.grid == cell_type.value
+        return mask
+
+    def convex_hull_grid_heuristic(self, *cell_types: Cell) -> np.ndarray[np.float64]:
+        mask = self.grid_cell_mask(*cell_types)
+        indices = np.array(mask.nonzero()).T
+        if len(indices) < 2:
+            return np.zeros(self.grid.shape)
+        hull: shapely.Polygon = shapely.convex_hull(shapely.MultiPoint(indices))
+        boundary: shapely.LineString = hull.boundary
+        distance_func = np.frompyfunc(lambda x, y: boundary.distance(shapely.Point(x, y)), 2, 1)
+        return np.fromfunction(distance_func, self.grid.shape, dtype=np.float64)
+
+    def grid_distance_heuristic(self) -> np.ndarray[np.float64]:
+        return np.fromfunction(lambda x, y: np.abs(x - self.x) + np.abs(y - self.y), self.grid.shape, dtype=np.int64)
 
 
 class Garbage(Agent):

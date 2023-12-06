@@ -16,6 +16,7 @@ multidict==6.0.4
 numpy==1.26.1
 Pygments==2.16.1
 rich==13.6.0
+shapely==2.0.2
 textual==0.40.0
 textual-canvas==0.2.0
 textual-dev==1.2.1
