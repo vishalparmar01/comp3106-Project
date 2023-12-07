@@ -80,7 +80,13 @@ class AStarController(AgentManager):
 
     def is_valid_move(self, node: Tuple[int, int]) -> bool:
         x, y = node
-        return 0 <= x < len(self.grid) and 0 <= y < len(self.grid[0]) and self.grid[x, y] != Cell.WALL.value
+        return (
+            0 <= x < len(self.grid)
+            and 0 <= y < len(self.grid[0])
+            and self.grid[x, y] != Cell.WALL.value
+            and all(node != pos for pos in self.agent_positions.values())
+        )
+
 
     def tick(self) -> None:
         garbage_start = self.agent_positions[AgentType.GARBAGE]
