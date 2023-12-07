@@ -129,15 +129,15 @@ class Agent:
     def tick(self, other_agents: AgentMap) -> None:
         # print(self)
         self.goal = self.goal or self.find_best_cell(*self.cell_types)
-        if self.pos == self.goal:
-            self.clean_up()
-            self.goal = None
-        elif self.run_away(other_agents) or not self.goal:
+        if self.run_away(other_agents) or not self.goal:
             return
         else:
             (x, y) = self.move_closer(other_agents)
             self.x += x
             self.y += y
+        if self.pos == self.goal:
+            self.clean_up()
+            self.goal = None
 
     @property
     def priority(self):

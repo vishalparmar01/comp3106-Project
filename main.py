@@ -72,7 +72,7 @@ if __name__ == "__main__":
         '--bins',
         help="Number of bins",
         type=int,
-        default=None
+        default=2
     )
     parser.add_argument(
         '-t',
@@ -80,6 +80,12 @@ if __name__ == "__main__":
         help="Number of test simulations to run",
         type=int,
         default=0
+    )
+    parser.add_argument(
+        '-r',
+        '--random-start',
+        help='Whether to randomise the start position',
+        action='store_true'
     )
     args = parser.parse_args()
 
@@ -92,8 +98,9 @@ if __name__ == "__main__":
         args.seed,
         args.fill,
         args.garbage,
-        args.bins or min(args.rows, args.columns) // 2,
-        args.tests
+        args.bins,
+        args.tests,
+        args.random_start
     )
     simulator.run()
 

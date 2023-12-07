@@ -1,8 +1,11 @@
 from abc import ABC
 from enum import Enum
+from random import choice
 from typing import List
 
 import numpy as np
+
+from grid.grid import Cell
 
 
 class AgentType(Enum):
@@ -13,6 +16,26 @@ class AgentType(Enum):
 
 Point = tuple[int, int]
 AgentLocations = dict[AgentType, Point]
+
+AGENT_TARGETS = {
+    AgentType.GARBAGE: (Cell.BIN, Cell.DRYTRASH, Cell.WETTRASH),
+    AgentType.MOP: (Cell.SOAKED,),
+    AgentType.VACUUM: (Cell.DUSTY,),
+}
+
+
+def get_start_positions(grid: np.ndarray, randomise: bool) -> AgentLocations:
+    if randomise:
+        return {
+            AgentType.GARBAGE: tuple(choice(np.argwhere(grid == Cell.BIN.value))),
+            AgentType.VACUUM: tuple(choice(np.argwhere(grid == Cell.SOAKED.value))),
+            AgentType.MOP: tuple(choice(np.argwhere(grid == Cell.DUSTY.value))),
+        }
+    return {
+        AgentType.GARBAGE: (0, 0),
+        AgentType.VACUUM: (1, 0),
+        AgentType.MOP: (2, 0),
+    }
 
 
 class AgentManager(ABC):
