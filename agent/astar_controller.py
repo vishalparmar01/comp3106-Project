@@ -84,7 +84,7 @@ class AStarController(AgentManager):
             0 <= x < len(self.grid)
             and 0 <= y < len(self.grid[0])
             and self.grid[x, y] != Cell.WALL.value
-            and all(node != pos for pos in self.agent_positions.values())
+
         )
 
 
@@ -148,7 +148,8 @@ class AStarController(AgentManager):
                 action == Action.MOVE_LEFT or action == Action.MOVE_RIGHT:
                 # Update agent positions if it's a movement action
                 new_position = self.apply_action(current_position, action)
-                self.agent_positions[agent_type] = new_position
+                if self.is_valid_move(new_position):
+                    self.agent_positions[agent_type] = new_position
 
         # # Set the cell value to EMPTY at the final position
         final_position = self.agent_positions[agent_type]
