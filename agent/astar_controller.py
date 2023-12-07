@@ -17,18 +17,18 @@ class Action(Enum):
 
 
 class AStarController(AgentManager):
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
-        super().__init__(grid, locations)
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, garbage_capacity: int):
+        super().__init__(grid, locations, garbage_capacity)
         self.agent_positions = locations
         self.garbage_pickup_count = 0  # Counter to track the number of trash pickups by the GARBAGE agent
-
+        self.garbage_capacity = garbage_capacity
 
     def agent_locations(self) -> AgentLocations:
         return self.agent_positions
 
     def __str__(self) -> str:
         return "A* Controller with agents at: " + str(self.agent_positions)
-    
+
     def heuristic(self, current, goal):
         return abs(current[0] - goal[0]) + abs(current[1] - goal[1])
 
@@ -42,7 +42,7 @@ class AStarController(AgentManager):
 
         while not open_set.empty():
             current_cost, current_node = open_set.get()
-            if current_node == goal:  
+            if current_node == goal:
                 while current_node in came_from:
                     path.append(came_from[current_node])
                     current_node = came_from[current_node]
@@ -57,7 +57,7 @@ class AStarController(AgentManager):
                     came_from[new_node] = action
 
         return path  # Return the list of actions
-    
+
 
     def apply_action(self, node: Tuple[int, int], action: Action) -> Tuple[int, int]:
         x, y = node
@@ -98,12 +98,12 @@ class AStarController(AgentManager):
         # New goals for cleaning both WETTRASH and DRYTRASH
         garbage_goal_dry = self.find_closest_goal(garbage_start, Cell.DRYTRASH)
         garbage_goal_wet = self.find_closest_goal(garbage_start, Cell.WETTRASH)
-        
+
         vacuum_actions = self.a_star(vacuum_start, vacuum_goal)
         mop_actions = self.a_star(mop_start, mop_goal)
 
         # Check if the GARBAGE agent should move to the BIN cell
-        if self.garbage_pickup_count >= 5 or (Cell.WETTRASH.value not in self.grid and Cell.DRYTRASH.value not in self.grid):
+        if self.garbage_pickup_count >= self.garbage_capacity or (Cell.WETTRASH.value not in self.grid and Cell.DRYTRASH.value not in self.grid):
             garbage_goal_bin = self.find_closest_goal(garbage_start, Cell.BIN)
             garbage_actions_bin = self.a_star(garbage_start, garbage_goal_bin)
 
@@ -193,7 +193,7 @@ class AStarController(AgentManager):
                     came_from[new_node] = current_node
 
         return start  # No goal found, return the original start position
-    
+
     def finished(self) -> bool:
         garbage_pos=self.agent_positions[AgentType.GARBAGE]
         if self.grid[garbage_pos[0],garbage_pos[1]]==Cell.BIN.value and all(cell.value not in self.grid for cell in [Cell.WETTRASH, Cell.DRYTRASH, Cell.DUSTY, Cell.SOAKED]):

@@ -91,6 +91,7 @@ class Simulator(App[None]):
         grid_bins: int,
         tests: int,
         random_start: bool,
+        garbage_capacity: int,
         **kwargs
     ):
         """
@@ -132,7 +133,15 @@ class Simulator(App[None]):
 
         self.Manager = Manager
         self.randomise_start_positions = random_start
-        self.agents = Manager(self.grid, get_start_positions(self.grid, self.randomise_start_positions))
+        self.garbage_capacity = garbage_capacity
+        self.agents = self.Manager(
+            self.grid,
+            get_start_positions(
+                self.grid,
+                self.randomise_start_positions
+            ),
+            self.garbage_capacity
+        )
 
         self.ticks = 0
         self.calculation_time = 0.
@@ -350,7 +359,14 @@ class Simulator(App[None]):
             self.paused = True
             self.timer.pause()
         self.grid = self.regenerate_grid()
-        self.agents = self.Manager(self.grid, get_start_positions(self.grid, self.randomise_start_positions))
+        self.agents = self.Manager(
+            self.grid,
+            get_start_positions(
+                self.grid,
+                self.randomise_start_positions
+            ),
+            self.garbage_capacity
+        )
         self.ticks = 0
         self.calculation_time = 0
         self.draw_ui()

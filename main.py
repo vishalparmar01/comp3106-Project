@@ -87,6 +87,13 @@ if __name__ == "__main__":
         help='Whether to randomise the start position',
         action='store_true'
     )
+    parser.add_argument(
+        '-c',
+        '--garbage-capacity',
+        help="Trash capacity of the garbage agent",
+        type=int,
+        default=5
+    )
     args = parser.parse_args()
 
     simulator = app.Simulator(
@@ -100,7 +107,8 @@ if __name__ == "__main__":
         args.garbage,
         args.bins,
         args.tests,
-        args.random_start
+        args.random_start,
+        args.garbage_capacity
     )
     simulator.run()
 

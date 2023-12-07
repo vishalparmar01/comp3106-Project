@@ -41,7 +41,7 @@ def get_start_positions(grid: np.ndarray, randomise: bool) -> AgentLocations:
 class AgentManager(ABC):
     """API for interacting with a group of agents."""
 
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, garbage_capacity: int):
         """Environment and initial agent locations."""
         self.grid = grid
 

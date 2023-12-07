@@ -292,9 +292,10 @@ CLASS_MAP = {
 
 
 class SeparateAgents(AgentManager):
-    def __init__(self, grid: np.ndarray, locations: AgentLocations):
-        super().__init__(grid, locations)
+    def __init__(self, grid: np.ndarray, locations: AgentLocations, garbage_capacity: int):
+        super().__init__(grid, locations, garbage_capacity)
         self.agents: AgentMap = {agent: CLASS_MAP[agent](grid, x, y) for agent, (x, y) in locations.items()}
+        self.agents[AgentType.GARBAGE].trash_capacity = garbage_capacity
 
     def tick(self) -> None:
         for agent in self.agents.values():
