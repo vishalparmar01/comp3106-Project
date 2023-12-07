@@ -188,6 +188,9 @@ class AStarController(AgentManager):
         return start  # No goal found, return the original start position
     
     def finished(self) -> bool:
-        return all(cell.value not in self.grid for cell in [Cell.WETTRASH, Cell.DRYTRASH, Cell.DUSTY, Cell.SOAKED])
+        garbage_pos=self.agent_positions[AgentType.GARBAGE]
+        if self.grid[garbage_pos[0],garbage_pos[1]]==Cell.BIN.value and all(cell.value not in self.grid for cell in [Cell.WETTRASH, Cell.DRYTRASH, Cell.DUSTY, Cell.SOAKED]):
+            return True
+        return False
 
 
