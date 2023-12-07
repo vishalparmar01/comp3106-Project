@@ -72,7 +72,20 @@ if __name__ == "__main__":
         '--bins',
         help="Number of bins",
         type=int,
-        default=None
+        default=2
+    )
+    parser.add_argument(
+        '-t',
+        '--tests',
+        help="Number of test simulations to run",
+        type=int,
+        default=0
+    )
+    parser.add_argument(
+        '-r',
+        '--random-start',
+        help='Whether to randomise the start position',
+        action='store_true'
     )
     args = parser.parse_args()
 
@@ -85,11 +98,14 @@ if __name__ == "__main__":
         args.seed,
         args.fill,
         args.garbage,
-        args.bins or max(args.rows, args.columns),
+        args.bins,
+        args.tests,
+        args.random_start
     )
     simulator.run()
 
     # print(simulator.grid.T)
     # print(simulator.agents)
-    print(simulator.seed)
-    print(f"{simulator.calculation_time}/{simulator.ticks}={simulator.calculation_time/max(1, simulator.ticks)} s/t")
+    print(simulator.results if args.tests else simulator.seed)
+    print(f"{simulator.calculation_time:.4f}/{simulator.ticks} = "
+          f"{simulator.calculation_time/max(1, simulator.ticks):.4f} s/t")

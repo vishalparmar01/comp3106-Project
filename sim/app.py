@@ -12,8 +12,8 @@ from textual.timer import Timer
 from textual.widgets import Footer, Header, RichLog, Label
 from textual_canvas import Canvas
 
-from agent.agent_manager import AgentManager, AgentType
-from grid.grid import create_dynamic_grid, Cell, get_start_positions
+from agent.agent_manager import AgentManager, AgentType, AGENT_TARGETS, get_start_positions
+from grid.grid import create_dynamic_grid, Cell
 from sim.print import printer, print
 
 
@@ -56,19 +56,24 @@ class Simulator(App[None]):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
-        ("p", "toggle_pause", "Toggle pause/resume"),
-        ("l", "toggle_logs", "Toggle logs"),
-        ("e", "select_erase", "Place empty"),
-        ("b", "select_bin", "Place bin"),
-        ("o", "select_obstacle", "Place obstacle"),
-        ("d", "select_trash", "Place dry trash"),
-        ("w", "select_wet", "Place wet trash"),
-        ("d", "select_dusty", "Place dusty square"),
-        ("s", "select_soaked", "Place soaked square"),
+        ("p", "toggle_pause", "Pause"),
+        ("l", "toggle_logs", "Show log"),
+        ("e", "select_erase", "Erase"),
+        ("b", "select_bin", "Bin"),
+        # ("o", "select_obstacle", "Obstacle"),
+        ("t", "select_trash", "Dry"),
+        ("w", "select_wet", "Wet"),
+        ("d", "select_dusty", "Dusty"),
+        ("s", "select_soaked", "Soaked"),
         ("+", "zoom_in", "Zoom in"),
         ("-", "zoom_out", "Zoom out"),
         ("r", "reset", "Reset"),
-        ("R", "reset_seed", "Reset w/ new seed"),
+        ("R", "reset_seed", "Restart"),
+        ("g", "focus_garbage", "Garbage view"),
+        ("m", "focus_mop", "Mop view"),
+        ("v", "focus_vacuum", "Vacuum view"),
+        ("ctrl+up", "speed_up", "Speed up"),
+        ("ctrl+down", "slow_down", "Slow down")
     ]
 
     CSS_PATH = "styles.tcss"
@@ -84,6 +89,8 @@ class Simulator(App[None]):
         grid_fill: float,
         grid_garbage_proportion: float,
         grid_bins: int,
+        tests: int,
+        random_start: bool,
         **kwargs
     ):
         """
@@ -101,15 +108,18 @@ class Simulator(App[None]):
 
         self.logger = RichLog()
         # self.logger.display = False
-        printer.print = lambda *args: self.logger.write(args) if len(args) > 1 else self.logger.write(args[0])
-        self.log_motd()
+        printer.print = lambda *args: self.logger.write(args)\
+            if len(args) > 1\
+            else self.logger.write(args[0] if args else "")
 
         self.rows = rows
         self.cols = cols
         self.regenerate_grid = lambda: create_dynamic_grid(cols, rows, grid_fill, grid_garbage_proportion, grid_bins)
         self.grid = self.regenerate_grid()
 
-        self.paused = True
+        self.num_tests = tests
+        self.results: dict[float, int] = {}
+        self.paused = not bool(self.num_tests)
 
         self.speed = speed
         self.timer: Timer | None = None
@@ -121,20 +131,29 @@ class Simulator(App[None]):
         self.original_scale_factor = scale_factor
 
         self.Manager = Manager
-        self.agents = Manager(self.grid, get_start_positions(self.grid))
+        self.randomise_start_positions = random_start
+        self.agents = Manager(self.grid, get_start_positions(self.grid, self.randomise_start_positions))
 
         self.ticks = 0
         self.calculation_time = 0.
 
         self.resizing = False
+        self.view: AgentType | None = None
 
-    def log_motd(self):
-        print(f"RNG seed: {self.seed}")
+        self.motd()
+
+    def motd(self) -> None:
+        if self.num_tests:
+            print(f"Test {len(self.results) + 1}/{self.num_tests}")
+        print(f"RNG Seed: {self.seed}")
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
             for j in range(self.cols):
-                self.draw_point(j, i, colours[Cell(self.grid[j, i])])
+                cell = Cell(self.grid[j, i])
+                if self.view and Cell(self.grid[j, i]) not in AGENT_TARGETS[self.view]:
+                    cell = Cell.EMPTY
+                self.draw_point(j, i, colours[cell])
 
     def on_mount(self) -> None:
         self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
@@ -169,6 +188,10 @@ class Simulator(App[None]):
         self.draw_grid()
         self.draw_agents()
 
+    @property
+    def probably_looping(self) -> bool:
+        return self.ticks > (max(self.rows, self.cols) ** 2) * 10
+
     def finished_sim(self) -> bool:
         grid_finished = not any(
             cell.value in self.grid for cell in [
@@ -181,7 +204,7 @@ class Simulator(App[None]):
         agents_finished = self.agents.finished()
         if agents_finished and not grid_finished:
             self.log("Error: Agents incorrectly think grid is clean")
-        return agents_finished and grid_finished
+        return (agents_finished and grid_finished) or self.probably_looping
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
@@ -202,13 +225,24 @@ class Simulator(App[None]):
             self.paused = True
             print(Traceback(show_locals=True))
         if self.finished_sim():
+            self.results[self.seed] = self.ticks
+            if len(self.results) < self.num_tests:
+                return self.reset(True)
             self.timer.pause()
             self.paused = True
-            print(f"Completed in {self.ticks} ticks")
-            print(f"Calculation time of {self.calculation_time} seconds")
-            print(f"{self.calculation_time/self.ticks} seconds/tick")
-            self.ticks = 0
-            self.calculation_time = 0.
+            if self.probably_looping:
+                print("ERROR - Quitting as the number of ticks is excessively high")
+
+            if len(self.results) == self.num_tests:
+                self.logger.clear()
+                print(self.results)
+                print()
+                print(f"Completed running {self.num_tests} tests")
+                print(f"Average ticks: {sum(self.results.values()) / self.num_tests:0.2f}")
+            else:
+                print(f"Completed in {self.ticks} ticks")
+                print(f"Calculation time of {self.calculation_time} seconds")
+                print(f"{self.calculation_time/self.ticks} seconds/tick")
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""
@@ -307,15 +341,15 @@ class Simulator(App[None]):
 
     def reset(self, change_seed: bool):
         self.logger.clear()
-        self.log_motd()
         if change_seed:
             self.seed = random()
         seed(self.seed)
-        if not self.paused:
+        self.motd()
+        if not self.paused and len(self.results) >= self.num_tests:
             self.paused = True
             self.timer.pause()
         self.grid = self.regenerate_grid()
-        self.agents = self.Manager(self.grid, get_start_positions(self.grid))
+        self.agents = self.Manager(self.grid, get_start_positions(self.grid, self.randomise_start_positions))
         self.ticks = 0
         self.calculation_time = 0
         self.draw_ui()
@@ -325,3 +359,25 @@ class Simulator(App[None]):
 
     def action_reset_seed(self):
         self.reset(True)
+
+    def action_focus_garbage(self):
+        self.view = None if self.view == AgentType.GARBAGE else AgentType.GARBAGE
+        self.draw_ui()
+
+    def action_focus_mop(self):
+        self.view = None if self.view == AgentType.MOP else AgentType.MOP
+        self.draw_ui()
+
+    def action_focus_vacuum(self):
+        self.view = None if self.view == AgentType.VACUUM else AgentType.VACUUM
+        self.draw_ui()
+
+    def action_speed_up(self):
+        self.speed = max(0.01, self.speed / 2)
+        self.timer.stop()
+        self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
+
+    def action_slow_down(self):
+        self.speed = min(5., self.speed * 2)
+        self.timer.stop()
+        self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
