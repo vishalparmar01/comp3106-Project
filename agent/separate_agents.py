@@ -135,7 +135,7 @@ class Agent:
             (x, y) = self.move_closer(other_agents)
             self.x += x
             self.y += y
-        if self.pos == self.goal:
+        if self.pos == self.goal or Cell(self.grid[self.pos]) in self.cell_types:
             self.clean_up()
             self.goal = None
 

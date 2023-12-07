@@ -225,7 +225,8 @@ class Simulator(App[None]):
             self.paused = True
             print(Traceback(show_locals=True))
         if self.finished_sim():
-            self.results[self.seed] = self.ticks
+            if self.num_tests:
+                self.results[self.seed] = self.ticks
             if len(self.results) < self.num_tests:
                 return self.reset(True)
             self.timer.pause()
@@ -233,7 +234,7 @@ class Simulator(App[None]):
             if self.probably_looping:
                 print("ERROR - Quitting as the number of ticks is excessively high")
 
-            if len(self.results) == self.num_tests:
+            if self.num_tests and len(self.results) == self.num_tests:
                 self.logger.clear()
                 print(self.results)
                 print()
