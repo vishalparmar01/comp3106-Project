@@ -74,6 +74,13 @@ if __name__ == "__main__":
         type=int,
         default=None
     )
+    parser.add_argument(
+        '-t',
+        '--tests',
+        help="Number of test simulations to run",
+        type=int,
+        default=0
+    )
     args = parser.parse_args()
 
     simulator = app.Simulator(
@@ -85,11 +92,13 @@ if __name__ == "__main__":
         args.seed,
         args.fill,
         args.garbage,
-        args.bins or max(args.rows, args.columns),
+        args.bins or min(args.rows, args.columns) // 2,
+        args.tests
     )
     simulator.run()
 
     # print(simulator.grid.T)
     # print(simulator.agents)
-    print(simulator.seed)
-    print(f"{simulator.calculation_time}/{simulator.ticks}={simulator.calculation_time/max(1, simulator.ticks)} s/t")
+    print(simulator.results if args.tests else simulator.seed)
+    print(f"{simulator.calculation_time:.4f}/{simulator.ticks} = "
+          f"{simulator.calculation_time/max(1, simulator.ticks):.4f} s/t")

@@ -84,6 +84,7 @@ class Simulator(App[None]):
         grid_fill: float,
         grid_garbage_proportion: float,
         grid_bins: int,
+        tests: int,
         **kwargs
     ):
         """
@@ -101,15 +102,18 @@ class Simulator(App[None]):
 
         self.logger = RichLog()
         # self.logger.display = False
-        printer.print = lambda *args: self.logger.write(args) if len(args) > 1 else self.logger.write(args[0])
-        self.log_motd()
+        printer.print = lambda *args: self.logger.write(args)\
+            if len(args) > 1\
+            else self.logger.write(args[0] if args else "")
 
         self.rows = rows
         self.cols = cols
         self.regenerate_grid = lambda: create_dynamic_grid(cols, rows, grid_fill, grid_garbage_proportion, grid_bins)
         self.grid = self.regenerate_grid()
 
-        self.paused = True
+        self.num_tests = tests
+        self.results: dict[float, int] = {}
+        self.paused = not bool(self.num_tests)
 
         self.speed = speed
         self.timer: Timer | None = None
@@ -128,8 +132,12 @@ class Simulator(App[None]):
 
         self.resizing = False
 
-    def log_motd(self):
-        print(f"RNG seed: {self.seed}")
+        self.motd()
+
+    def motd(self) -> None:
+        if self.num_tests:
+            print(f"Test {len(self.results) + 1}/{self.num_tests}")
+        print(f"RNG Seed: {self.seed}")
 
     def draw_grid(self) -> None:
         for i in range(self.rows):
@@ -169,6 +177,10 @@ class Simulator(App[None]):
         self.draw_grid()
         self.draw_agents()
 
+    @property
+    def probably_looping(self) -> bool:
+        return self.ticks > (max(self.rows, self.cols) ** 2) * 10
+
     def finished_sim(self) -> bool:
         grid_finished = not any(
             cell.value in self.grid for cell in [
@@ -181,7 +193,7 @@ class Simulator(App[None]):
         agents_finished = self.agents.finished()
         if agents_finished and not grid_finished:
             self.log("Error: Agents incorrectly think grid is clean")
-        return agents_finished and grid_finished
+        return (agents_finished and grid_finished) or self.probably_looping
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
@@ -202,13 +214,24 @@ class Simulator(App[None]):
             self.paused = True
             print(Traceback(show_locals=True))
         if self.finished_sim():
+            self.results[self.seed] = self.ticks
+            if len(self.results) < self.num_tests:
+                return self.reset(True)
             self.timer.pause()
             self.paused = True
-            print(f"Completed in {self.ticks} ticks")
-            print(f"Calculation time of {self.calculation_time} seconds")
-            print(f"{self.calculation_time/self.ticks} seconds/tick")
-            self.ticks = 0
-            self.calculation_time = 0.
+            if self.probably_looping:
+                print("ERROR - Quitting as the number of ticks is excessively high")
+
+            if len(self.results) == self.num_tests:
+                self.logger.clear()
+                print(self.results)
+                print()
+                print(f"Completed running {self.num_tests} tests")
+                print(f"Average ticks: {sum(self.results.values()) / self.num_tests:0.2f}")
+            else:
+                print(f"Completed in {self.ticks} ticks")
+                print(f"Calculation time of {self.calculation_time} seconds")
+                print(f"{self.calculation_time/self.ticks} seconds/tick")
 
     def draw_point(self, x: int, y: int, color: Color) -> None:
         """Draws a scaled point to the canvas."""
@@ -307,11 +330,11 @@ class Simulator(App[None]):
 
     def reset(self, change_seed: bool):
         self.logger.clear()
-        self.log_motd()
         if change_seed:
             self.seed = random()
         seed(self.seed)
-        if not self.paused:
+        self.motd()
+        if not self.paused and len(self.results) >= self.num_tests:
             self.paused = True
             self.timer.pause()
         self.grid = self.regenerate_grid()
