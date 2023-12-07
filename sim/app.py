@@ -72,6 +72,8 @@ class Simulator(App[None]):
         ("g", "focus_garbage", "Garbage view"),
         ("m", "focus_mop", "Mop view"),
         ("v", "focus_vacuum", "Vacuum view"),
+        ("ctrl+up", "speed_up", "Speed up"),
+        ("ctrl+down", "slow_down", "Slow down")
     ]
 
     CSS_PATH = "styles.tcss"
@@ -369,3 +371,13 @@ class Simulator(App[None]):
     def action_focus_vacuum(self):
         self.view = None if self.view == AgentType.VACUUM else AgentType.VACUUM
         self.draw_ui()
+
+    def action_speed_up(self):
+        self.speed = max(0.01, self.speed / 2)
+        self.timer.stop()
+        self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
+
+    def action_slow_down(self):
+        self.speed = min(5., self.speed * 2)
+        self.timer.stop()
+        self.timer = self.set_interval(self.speed, self.tick, pause=self.paused)
