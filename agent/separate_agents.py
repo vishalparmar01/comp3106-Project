@@ -18,11 +18,7 @@ def manhattan_distance(p1: Point, p2: Point) -> int:
 
 def agent_distances(locations: AgentMap, agent: AgentType, test_pos: Point = None) -> dict[AgentType, float]:
     return {
-        other_type: manhattan_distance(
-            test_pos or locations[agent].pos, other_agent.pos
-        ) - max(
-            locations[agent].priority - other_agent.priority, 0
-        ) / 2
+        other_type: manhattan_distance(test_pos or locations[agent].pos, other_agent.pos)
         for other_type, other_agent in locations.items()
         if other_type != agent
     }
@@ -140,10 +136,6 @@ class Agent:
             self.goal = None
 
     @property
-    def priority(self):
-        return 1 if self.goal else 0
-
-    @property
     def pos(self) -> Point:
         return self.x, self.y
 
@@ -238,10 +230,6 @@ class Garbage(Agent):
         if Cell.WETTRASH.value not in self.grid and Cell.DRYTRASH.value not in self.grid and self.current_trash:
             self.cell_types = (Cell.BIN,)
         super().tick(other_agents)
-
-    @property
-    def priority(self) -> int:
-        return int(self.current_trash == self.trash_capacity) + 1
 
     def clean_up(self) -> None:
         if self.grid[self.pos] == Cell.BIN.value:
