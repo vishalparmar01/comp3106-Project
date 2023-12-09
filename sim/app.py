@@ -352,6 +352,7 @@ class Simulator(App[None]):
     def reset(self, change_seed: bool):
         self.logger.clear()
         if change_seed:
+            seed(self.seed)
             self.seed = random()
         seed(self.seed)
         self.motd()
