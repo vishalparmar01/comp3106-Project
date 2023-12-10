@@ -88,7 +88,8 @@ class Agent:
             if max(personal_movements.values()) > 6:
                 if not nearest_target or manhattan_distance(self.pos, nearest_target) > 6:
                     return False
-                personal_movements = target_movements
+                if target_movements:
+                    personal_movements = target_movements
             best_personal = best_keys(personal_movements, max)
             (x, y) = best_key({move: value for move, value in target_movements.items() if move in best_personal}, max)
             self.x += x
@@ -124,7 +125,8 @@ class Agent:
 
     def tick(self, other_agents: AgentMap) -> None:
         # print(self)
-        self.goal = self.goal or self.find_best_cell(*self.cell_types)
+        # self.goal = self.goal or self.find_best_cell(*self.cell_types)
+        self.goal = self.find_best_cell(*self.cell_types)
         if self.run_away(other_agents) or not self.goal:
             return
         else:
@@ -159,7 +161,10 @@ class Agent:
             return self.pos
         hull_distance = self.convex_hull_grid_heuristic(*cell_types)
         grid_distance = self.grid_distance_heuristic()
-        combined = (hull_distance + 1) * + grid_distance
+        combined = (hull_distance + 1) * grid_distance
+        # combined = grid_distance * 1.
+        # combined = hull_distance * 0.5 + grid_distance
+        # combined = hull_distance + grid_distance
         combined[~self.grid_cell_mask(*cell_types)] = np.float64('inf')
         best = np.argmin(combined)
         best_index = np.unravel_index(best, self.grid.shape)
@@ -206,10 +211,19 @@ class Agent:
             return np.zeros(self.grid.shape)
         hull: shapely.Polygon = shapely.convex_hull(shapely.MultiPoint(indices))
         boundary: shapely.LineString = hull.boundary
-        distance_func = np.frompyfunc(lambda x, y: boundary.distance(shapely.Point(x, y)), 2, 1)
+        if hull.geom_type == "LineString":
+            def hull_manhattan_distance(_x: int, _y: int) -> float:
+                return 0.
+        else:
+            def hull_manhattan_distance(x: int, y: int) -> float:
+                closest_point_distance: float = boundary.line_locate_point(shapely.Point(x, y))
+                closest_point: shapely.Point = boundary.line_interpolate_point(closest_point_distance)
+                return abs(closest_point.x - x) + abs(closest_point.y - y)
+        distance_func = np.frompyfunc(hull_manhattan_distance, 2, 1)
+        # distance_func = np.frompyfunc(lambda x, y: boundary.distance(shapely.Point(x, y)), 2, 1)
         return np.fromfunction(distance_func, self.grid.shape, dtype=np.float64)
 
-    def grid_distance_heuristic(self) -> np.ndarray[np.float64]:
+    def grid_distance_heuristic(self) -> np.ndarray[np.int64]:
         return np.fromfunction(lambda x, y: np.abs(x - self.x) + np.abs(y - self.y), self.grid.shape, dtype=np.int64)
 
 
