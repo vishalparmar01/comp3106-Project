@@ -57,7 +57,8 @@ class Simulator(App[None]):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("p", "toggle_pause", "Pause"),
-        ("l", "toggle_logs", "Show log"),
+        ("l", "toggle_logs", "Logs"),
+        ("h", "toggle_view", "Headless"),
         ("e", "select_erase", "Erase"),
         ("b", "select_bin", "Bin"),
         # ("o", "select_obstacle", "Obstacle"),
@@ -198,8 +199,11 @@ class Simulator(App[None]):
         self.draw_agents()
 
     @property
+    def max_loops(self):
+        return (max(self.rows, self.cols) ** 2) * 10
+
     def probably_looping(self) -> bool:
-        return self.ticks > (max(self.rows, self.cols) ** 2) * 10
+        return self.ticks > self.max_loops
 
     def finished_sim(self) -> bool:
         grid_finished = not any(
@@ -213,7 +217,7 @@ class Simulator(App[None]):
         agents_finished = self.agents.finished()
         if agents_finished and not grid_finished:
             self.log("Error: Agents incorrectly think grid is clean")
-        return (agents_finished and grid_finished) or self.probably_looping
+        return (agents_finished and grid_finished) or self.probably_looping()
 
     def tick(self) -> None:
         """Simulation tick updating the state of the agents and environment."""
@@ -240,7 +244,7 @@ class Simulator(App[None]):
                 return self.reset(True)
             self.timer.pause()
             self.paused = True
-            if self.probably_looping:
+            if self.probably_looping():
                 print("ERROR - Quitting as the number of ticks is excessively high")
 
             if self.num_tests and len(self.results) == self.num_tests:
@@ -249,6 +253,9 @@ class Simulator(App[None]):
                 print()
                 print(f"Completed running {self.num_tests} tests")
                 print(f"Average ticks: {sum(self.results.values()) / self.num_tests:0.2f}")
+                for run_seed, ticks in self.results.items():
+                    if ticks > self.max_loops:
+                        print(f"Seed probably looping: {run_seed}")
             else:
                 print(f"Completed in {self.ticks} ticks")
                 print(f"Calculation time of {self.calculation_time} seconds")
@@ -274,6 +281,9 @@ class Simulator(App[None]):
 
     def action_toggle_logs(self) -> None:
         self.logger.display = not self.logger.display
+
+    def action_toggle_view(self) -> None:
+        self.canvas.display = not self.canvas.display
 
     def action_select_erase(self) -> None:
         self.brush = Cell.EMPTY

@@ -1,8 +1,8 @@
 RichLog {
 	dock: right;
 	width: 50vw;
-	max-width: 95vw;
-	min-width: 10;
+	max-width: 98vw;
+	min-width: 15;
 	border: round orange 50%;
 }
 
